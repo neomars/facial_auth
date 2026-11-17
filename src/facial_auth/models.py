@@ -166,6 +166,28 @@ def fetch_required(paths: Paths | None = None, cv_version: str | None = None,
             for s in required(cv_version)]
 
 
+def fetch_all(dest_dir: Path, progress=None, opener=urllib.request.urlopen,
+              specs: tuple[ModelSpec, ...] = ALL) -> list[Path]:
+    """Download *every* known model, whatever the OpenCV version.
+
+    Used when building a package: it then works on any release of Ubuntu and
+    needs no network at install time.
+    """
+    return [fetch(s, dest_dir, opener=opener, progress=progress) for s in specs]
+
+
+def check_dir(directory: Path, specs: tuple[ModelSpec, ...] = ALL) -> list[str]:
+    """Problems found in a directory of models; an empty list means all good."""
+    problems = []
+    for spec in specs:
+        path = directory / spec.filename
+        if not path.exists():
+            problems.append(f"{spec.filename}: missing")
+        elif not verify(spec, path):
+            problems.append(f"{spec.filename}: size or SHA-256 mismatch")
+    return problems
+
+
 def install_from(directory: Path, paths: Paths | None = None, cv_version: str | None = None) -> list[Path]:
     """Install already-downloaded files (offline machines): verifies them."""
     paths = paths or Paths()

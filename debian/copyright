@@ -25,6 +25,21 @@ License: MIT
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
 
-Comment: The face models downloaded at install time are NOT part of this
- package: YuNet (MIT, Shiqi Yu) and SFace (Apache-2.0, Yaoyao Zhong) come
- from https://github.com/opencv/opencv_zoo and keep their own licences.
+Files: data/models/face_detection_yunet_*.onnx
+Copyright: 2020 Shiqi Yu <shiqi.yu@gmail.com>
+License: MIT
+Comment: YuNet face detector, from https://github.com/opencv/opencv_zoo
+ (bundled in release builds only).
+
+Files: data/models/face_recognition_sface_*.onnx
+Copyright: SFace authors (Yaoyao Zhong et al.) and OpenCV Zoo contributors
+License: Apache-2.0
+Comment: SFace face recognizer, from https://github.com/opencv/opencv_zoo
+ (bundled in release builds only).
+
+License: Apache-2.0
+ Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ use these files except in compliance with the License.
+ .
+ On Debian systems, the full text of the Apache License, Version 2.0 can be
+ found in /usr/share/common-licenses/Apache-2.0.

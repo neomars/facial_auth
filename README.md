@@ -36,16 +36,41 @@ Cible : Ubuntu 24.04 LTS (OpenCV 4.6, GNOME/GDM). Python ≥ 3.10. Sur 22.04, le
 ligne de commande devraient fonctionner (OpenCV 4.5.4, non testé) ; l'application graphique exige
 libadwaita ≥ 1.5.
 
+### Depuis une release (recommandé)
+
+Chaque [release](../../releases) fournit les paquets `.deb` déjà compilés, **modèles de
+reconnaissance inclus** : l'installation fonctionne hors ligne.
+
+```bash
+# remplacez X.Y.Z par la version de la release
+BASE=https://github.com/neomars/facial_auth/releases/download/vX.Y.Z
+curl -LO "$BASE/facial-auth_X.Y.Z_amd64.deb"
+curl -LO "$BASE/facial-auth-gtk_X.Y.Z_all.deb"
+curl -LO "$BASE/SHA256SUMS"
+sha256sum -c --ignore-missing SHA256SUMS
+sudo apt install ./facial-auth_X.Y.Z_amd64.deb ./facial-auth-gtk_X.Y.Z_all.deb
+```
+
+Les releases se publient depuis GitHub (voir [`docs/RELEASE.md`](docs/RELEASE.md)) : un workflow
+compile, teste sur une machine propre, puis attache les paquets à la release.
+
+### Depuis les sources
+
 ```bash
 sudo apt install build-essential devscripts debhelper dh-python meson gettext \
                  libpam0g-dev python3-all
 dpkg-buildpackage -us -uc -b
-sudo apt install ../facial-auth_0.1.0_amd64.deb ../facial-auth-gtk_0.1.0_all.deb
+sudo apt install ../facial-auth_*_amd64.deb ../facial-auth-gtk_*_all.deb
 ```
 
-L'installation crée l'utilisateur `facial-auth`, active la socket systemd,
-ajoute le module à `/etc/pam.d/common-auth` (via `pam-auth-update`) et tente de
-télécharger les modèles. Hors ligne, ou si le téléchargement a échoué :
+Un paquet compilé ainsi n'embarque pas les modèles : il les télécharge à l'installation
+(`scripts/build-deb.sh --require-models` les embarque, voir `docs/RELEASE.md`).
+
+### Après l'installation
+
+L'installation crée l'utilisateur `facial-auth`, active la socket systemd et
+ajoute le module à `/etc/pam.d/common-auth` (via `pam-auth-update`). Si les
+modèles manquent (paquet compilé sans eux, hors ligne) :
 
 ```bash
 sudo facial-auth fetch-models              # télécharge et vérifie (SHA-256)
@@ -136,6 +161,7 @@ sudo /usr/bin/python3.12 -m pytest tests/system             # après installatio
 * [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — composants et décisions de conception
 * [`docs/PROTOCOL.md`](docs/PROTOCOL.md) — protocole module PAM ↔ démon
 * [`docs/SECURITY.md`](docs/SECURITY.md) — modèle de menace, limites, vie privée
+* [`docs/RELEASE.md`](docs/RELEASE.md) — publier une version, paquets `.deb` des releases
 
 Licence : MIT (voir `LICENSE`). Les modèles téléchargés conservent leur propre
 licence : YuNet (MIT), SFace (Apache-2.0), de
