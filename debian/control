@@ -1,0 +1,61 @@
+Source: facial-auth
+Section: admin
+Priority: optional
+Maintainer: facial-auth maintainers <facial-auth@users.noreply.github.com>
+Build-Depends:
+ debhelper-compat (= 13),
+ dh-python,
+ gettext,
+ libpam0g-dev,
+ meson (>= 1.0),
+ python3-all,
+Standards-Version: 4.6.2
+Homepage: https://github.com/neomars/facial_auth
+Rules-Requires-Root: no
+
+Package: facial-auth
+Architecture: any
+Depends:
+ dbus,
+ libpam-runtime (>= 1.1.3-5~),
+ polkitd | policykit-1,
+ python3-gi,
+ python3-numpy,
+ python3-opencv (>= 4.5.4),
+ systemd,
+ ${misc:Depends},
+ ${python3:Depends},
+ ${shlibs:Depends},
+Recommends:
+ ca-certificates,
+ facial-auth-gtk,
+Description: face authentication integrated with the Ubuntu login system
+ Sign in, unlock the screen, use sudo or answer administrator prompts with
+ your face, through PAM.  The password stays available at every step: while
+ the camera looks for your face you can type your password at any moment, and
+ a failed scan never counts as a failed login nor locks the account.
+ .
+ A PAM module (pam_facial_auth.so) asks an unprivileged, sandboxed daemon
+ (facial-authd) that matches faces with the OpenCV YuNet and SFace models.
+ Faces are linked to accounts by an administrator (polkit); only embeddings
+ are stored, never photographs.
+ .
+ A colour webcam can be fooled by a photograph, so privilege escalation (sudo,
+ su, polkit) requires an infrared camera unless the administrator opts in.
+
+Package: facial-auth-gtk
+Architecture: all
+Depends:
+ facial-auth (= ${source:Version}),
+ gir1.2-adw-1,
+ gir1.2-gdkpixbuf-2.0,
+ gir1.2-gtk-4.0,
+ python3-gi,
+ python3-gi-cairo,
+ ${misc:Depends},
+ ${python3:Depends},
+Description: GTK settings application for facial-auth
+ "Face Login": preview the camera or import photos taken with the Camera
+ application, then let an administrator link the face to an account.  Also
+ lets users test, disable or remove their faces and choose where the face may
+ be used.

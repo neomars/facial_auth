@@ -1,0 +1,8 @@
+Name: Facial authentication (facial-auth)
+Default: yes
+Priority: 270
+Auth-Type: Primary
+Auth:
+	[success=end conv_err=die default=ignore]	pam_facial_auth.so
+Auth-Initial:
+	[success=end conv_err=die default=ignore]	pam_facial_auth.so

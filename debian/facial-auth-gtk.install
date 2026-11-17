@@ -1,0 +1,5 @@
+usr/bin/facial-auth-settings
+usr/lib/python3/dist-packages/facial_auth/gui/
+usr/share/applications/
+usr/share/icons/
+usr/share/man/man1/facial-auth-settings.1

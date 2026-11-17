@@ -1,0 +1,15 @@
+[Unit]
+Description=Facial authentication socket (used by the PAM module)
+Documentation=man:facial-auth(1)
+
+[Socket]
+ListenStream=/run/facial-auth/pam.sock
+# The daemon decides per caller (SO_PEERCRED): root may ask about anyone, an
+# ordinary user only about themselves.
+SocketMode=0666
+DirectoryMode=0755
+SocketUser=root
+RemoveOnStop=yes
+
+[Install]
+WantedBy=sockets.target

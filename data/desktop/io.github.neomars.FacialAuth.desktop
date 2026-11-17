@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=Face Login
+Name[fr]=Connexion par le visage
+GenericName=Face authentication
+GenericName[fr]=Authentification faciale
+Comment=Sign in and unlock your computer with your face
+Comment[fr]=Se connecter et déverrouiller l'ordinateur avec son visage
+Exec=facial-auth-settings
+Icon=io.github.neomars.FacialAuth
+Terminal=false
+StartupNotify=true
+Categories=GNOME;GTK;Settings;Security;System;
+Keywords=face;camera;biometric;login;authentication;unlock;visage;caméra;biométrie;connexion;

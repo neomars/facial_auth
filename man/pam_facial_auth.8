@@ -1,0 +1,76 @@
+.TH PAM_FACIAL_AUTH 8 "2026-11-17" "facial-auth 0.1.0" "System Administration"
+.SH NAME
+pam_facial_auth \- PAM module for face authentication
+.SH SYNOPSIS
+.B pam_facial_auth.so
+[\fBdebug\fR] [\fBquiet\fR] [\fBallow_locked\fR] [\fBmode=\fR\fIMODE\fR]
+[\fBsocket=\fR\fIPATH\fR] [\fBmarker_dir=\fR\fIDIR\fR] [\fBmax_rescans=\fR\fIN\fR]
+.SH DESCRIPTION
+Provides the \fBauth\fR service.  The module asks
+.B facial-authd
+(over a root-owned Unix socket whose peer credentials it verifies) whether the
+face in front of the camera belongs to the user being authenticated.  It only
+returns \fBPAM_SUCCESS\fR when the daemon answers "OK"; in every other case it
+returns \fBPAM_IGNORE\fR so that the rest of the stack (\fBpam_unix\fR...)
+handles the password.  A failed face scan therefore never counts as a failed
+login.
+.PP
+The module is enabled by \fBpam-auth-update\fR(8).  It should be placed before
+\fBpam_unix\fR with the control
+.B [success=end conv_err=die default=ignore].
+.SH OPTIONS
+.TP
+.B debug
+Log details through syslog.
+.TP
+.B quiet
+Do not print "Looking for your face..." messages.
+.TP
+.B allow_locked
+Also try the face for accounts whose password is locked (\fBpasswd -l\fR).  By
+default such accounts never use their face.
+.TP
+.BI mode= MODE
+Override the interaction mode chosen by the daemon: \fBsequential\fR,
+\fBparallel\fR or \fBparallel-tty\fR.
+.TP
+.BI socket= PATH
+Daemon socket (default \fI/run/facial-auth/pam.sock\fR).
+.TP
+.BI marker_dir= DIR
+Directory with one file per enrolled user; users without a file never reach
+the daemon (use \fBmarker_dir=-\fR to disable).
+.TP
+.BI max_rescans= N
+How many times an empty password restarts the face scan (default 3).
+.SH INTERACTION MODES
+.TP
+.B sequential
+The scan comes first; the password prompt follows if it fails.  Safe
+everywhere; the default at the GNOME login screen.
+.TP
+.B parallel
+The password prompt is displayed while the camera scans.  If the face wins, the
+pending prompt is abandoned.  For graphical helpers (polkit).
+.TP
+.B parallel-tty
+Like \fBparallel\fR for terminals (sudo, su, login): a pending prompt is
+cancelled and the terminal state restored when the face wins.  An empty
+password restarts the scan; Ctrl-C aborts at once.
+.SH RETURN VALUES
+.TP
+.B PAM_SUCCESS
+The daemon recognised the face.
+.TP
+.B PAM_CONV_ERR
+The user abandoned the password prompt (use \fBconv_err=die\fR).
+.TP
+.B PAM_IGNORE
+Anything else.
+.SH SECURITY
+Remote sessions (\fBPAM_RHOST\fR, ssh environment), closed laptop lids, locked
+accounts and unlisted services never use the camera.
+.SH SEE ALSO
+.BR facial-auth (1),
+.BR pam.conf (5),
+.BR pam-auth-update (8)

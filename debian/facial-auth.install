@@ -1,0 +1,14 @@
+etc/facial-auth/
+usr/bin/facial-auth
+usr/libexec/facial-auth/
+usr/lib/python3/dist-packages/facial_auth/*.py
+usr/lib/*/security/pam_facial_auth.so
+usr/lib/systemd/system/
+usr/lib/sysusers.d/
+usr/share/dbus-1/
+usr/share/facial-auth/
+usr/share/locale/
+usr/share/pam-configs/facial-auth
+usr/share/polkit-1/
+usr/share/man/man8/pam_facial_auth.8
+usr/share/man/man1/facial-auth.1

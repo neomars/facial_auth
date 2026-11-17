@@ -1,0 +1,33 @@
+# Build / packaging
+/build/
+/builddir/
+*.o
+*.so
+*.mo
+/debian/.debhelper/
+/debian/*.debhelper*
+/debian/*.substvars
+/debian/files
+/debian/facial-auth/
+/debian/facial-auth-gtk/
+/debian/debhelper-build-stamp
+/obj-*/
+../*.deb
+../*.buildinfo
+../*.changes
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+
+# Models are downloaded (see scripts/fetch-models.sh) and never committed
+/data/models/*.onnx
+*.onnx
+
+# Local scratch
+/.scratch/
+
+# Tiny hand-made stand-ins used by the tests (the real models are never committed)
+!tests/fixtures/*.onnx

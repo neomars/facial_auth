@@ -1,0 +1,7 @@
+facial-auth (0.1.0) unstable; urgency=medium
+
+  * Initial release: PAM module with parallel face/password authentication,
+    sandboxed daemon (OpenCV YuNet + SFace), D-Bus/polkit management API,
+    `facial-auth` command line and GTK 4 settings application.
+
+ -- facial-auth maintainers <facial-auth@users.noreply.github.com>  Tue, 17 Nov 2026 12:00:00 +0000

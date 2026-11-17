@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>facial-auth</vendor>
+  <vendor_url>https://github.com/neomars/facial_auth</vendor_url>
+  <icon_name>io.github.neomars.FacialAuth</icon_name>
+
+  <action id="io.github.neomars.FacialAuth1.manage-faces">
+    <description>Link or unlink a face to a user account</description>
+    <description xml:lang="fr">Lier ou délier un visage à un compte utilisateur</description>
+    <message>Authentication is required to link a face to a user account</message>
+    <message xml:lang="fr">Une authentification est nécessaire pour lier un visage à un compte utilisateur</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <action id="io.github.neomars.FacialAuth1.configure">
+    <description>Change the face authentication settings</description>
+    <description xml:lang="fr">Modifier les réglages de l'authentification faciale</description>
+    <message>Authentication is required to change the face authentication settings</message>
+    <message xml:lang="fr">Une authentification est nécessaire pour modifier les réglages de l'authentification faciale</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <action id="io.github.neomars.FacialAuth1.use-camera">
+    <description>Use the camera to set up face authentication</description>
+    <description xml:lang="fr">Utiliser la caméra pour configurer l'authentification faciale</description>
+    <message>Authentication is required to use the camera</message>
+    <message xml:lang="fr">Une authentification est nécessaire pour utiliser la caméra</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+</policyconfig>
