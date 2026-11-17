@@ -1,0 +1,10 @@
+option('socket_path', type: 'string', value: '/run/facial-auth/pam.sock',
+       description: 'Unix socket of facial-authd used by the PAM module')
+option('marker_dir', type: 'string', value: '/var/lib/facial-auth/enrolled',
+       description: 'World-readable directory with one empty file per enrolled user')
+option('service_user', type: 'string', value: 'facial-auth',
+       description: 'System user running facial-authd')
+option('pam_moduledir', type: 'string', value: '',
+       description: 'Where to install pam_facial_auth.so (default: libdir/security)')
+option('tests', type: 'boolean', value: true,
+       description: 'Build the test helpers (pamtest)')
