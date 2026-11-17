@@ -110,14 +110,14 @@ def scenario(**kw):
     return quote(json.dumps(kw, separators=(",", ":")), safe="")
 
 
-def run(env, scn, *args, service="fa-test", user=USER, timeout=20, ruser_raw=None):
+def run(env, scn, *args, service="fa-test", user=USER, timeout=20, ruser_raw=None, extra_env=None):
     """Run pamtest; `scn` is a scenario dict (sent through ruser)."""
     log_path = env["log"]
     before = log_path.read_text().count("\n") if log_path.exists() else 0
     ruser = ruser_raw if ruser_raw is not None else json.dumps(scn, separators=(",", ":"))
     cmd = [str(env["pamtest"]), "--ruser", ruser, *args, service, user]
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
-                          env={"PATH": os.environ["PATH"], "LANGUAGE": "C", "LC_ALL": "C"})
+                          env={"PATH": os.environ["PATH"], "LANGUAGE": "C", "LC_ALL": "C", **(extra_env or {})})
     events = []
     for line in proc.stdout.splitlines():
         m = re.match(r"^(\S+) (-?\d+) ?(.*)$", line)
@@ -316,6 +316,15 @@ def test_remote_login_never_uses_the_camera(env):
     r = run(env, {"accept": {"mode": "sequential", "timeout": 5},
                   "result": {"kind": "OK", "delay": 0.1}},
             "--rhost", "203.0.113.9", "--answer", f"0:{PASSWORD}")
+    assert r.rc == 0 and not r.requests()
+
+
+@pytest.mark.parametrize("var", ["SSH_CONNECTION", "SSH_CLIENT", "SSH_TTY"])
+def test_a_process_started_from_an_ssh_session_never_uses_the_camera(env, var):
+    """sudo run over ssh inherits SSH_*: the person typing is not at the local camera."""
+    r = run(env, {"accept": {"mode": "sequential", "timeout": 5},
+                  "result": {"kind": "OK", "delay": 0.1}},
+            "--answer", f"0:{PASSWORD}", extra_env={var: "198.51.100.7 5000 192.0.2.1 22"})
     assert r.rc == 0 and not r.requests()
 
 

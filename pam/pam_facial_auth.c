@@ -849,6 +849,13 @@ static bool is_loopback_host(const char *h)
            !strcmp(h, "::1") || !strcmp(h, "localhost.localdomain");
 }
 
+/* sudo/su started from an ssh session inherit these: whoever types there is not
+ * in front of the local camera, so a face would prove nothing. */
+static bool inside_ssh_session(void)
+{
+    return getenv("SSH_CONNECTION") || getenv("SSH_CLIENT") || getenv("SSH_TTY");
+}
+
 static bool not_enrolled_marker(const struct options *o, const char *user)
 {
     char path[PATH_MAX];
@@ -906,6 +913,10 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc,
 
     if (!is_loopback_host(rhost)) {
         DBG(pamh, &o, "remote login (%s): no face authentication", rhost);
+        return PAM_IGNORE;
+    }
+    if (inside_ssh_session()) {
+        DBG(pamh, &o, "inside an ssh session: no face authentication");
         return PAM_IGNORE;
     }
     pw = pam_modutil_getpwnam(pamh, user);

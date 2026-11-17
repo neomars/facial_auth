@@ -148,3 +148,41 @@ def test_real_sudo_ctrl_c_with_the_installed_stack(mock):
     p.send("\x03")
     p.wait(8)
     assert time.monotonic() - t0 < 4 and "uid=" not in p.buf and "\nroot" not in p.buf
+
+
+# --- util-linux su/login read the password through libpam_misc's misc_conv ----
+# (sudo uses its own tgetpass): the cancel/terminal-restore path must hold there too.
+TARGET = "fasystem2"
+
+
+@pytest.fixture
+def su_target(box):
+    if subprocess.run(["id", TARGET], capture_output=True).returncode != 0:
+        subprocess.run(["useradd", "-m", "-s", "/bin/bash", TARGET], check=True)
+    subprocess.run(["chpasswd"], input=f"{TARGET}:{PASSWORD}\n", text=True, check=True)
+    MARKER.parent.mkdir(parents=True, exist_ok=True)
+    (MARKER.parent / TARGET).touch()
+    yield TARGET
+    (MARKER.parent / TARGET).unlink(missing_ok=True)
+    subprocess.run(["userdel", "-r", TARGET], capture_output=True)
+
+
+def test_real_su_face_wins_and_the_terminal_is_left_usable(mock, su_target):
+    scenario(mock, {"accept": {"mode": "parallel-tty", "timeout": 6}, "result": {"kind": "OK", "delay": 0.8}})
+    p = Pty(sudo_cmd(f"su {su_target} -c 'id -un'; stty -a | grep -o -- '-\\?echo ' | head -1 | tr -d ' ' "
+                     "| sed 's/^/ECHO=/'; read -r -t 3 line; echo \"NEXT=[$line]\""))
+    assert p.expect("Looking for your face", 8), p.buf
+    assert p.expect("Face recognized.", 8), p.buf
+    p.send("hello\n")
+    assert p.wait() == 0 and su_target in p.buf, p.buf
+    assert "ECHO=echo" in p.buf, f"misc_conv left the terminal in no-echo mode:\n{p.buf}"
+    assert "NEXT=[hello]" in p.buf, f"keystrokes stolen by the cancelled prompt:\n{p.buf}"
+
+
+def test_real_su_password_typed_while_scanning(mock, su_target):
+    scenario(mock, {"accept": {"mode": "parallel-tty", "timeout": 8}, "result": {"kind": "HANG"}})
+    p = Pty(sudo_cmd(f"su {su_target} -c 'id -un'"))
+    assert p.expect("Password", 8), p.buf
+    time.sleep(0.4)
+    p.send(PASSWORD + "\n")
+    assert p.wait() == 0 and su_target in p.buf.split("Password")[-1], p.buf

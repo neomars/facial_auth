@@ -56,23 +56,31 @@ def similarity(a: np.ndarray, b: np.ndarray) -> float:
 
 
 class OpenCVEngine:
-    """YuNet detector + SFace recognizer through ``cv2.FaceDetectorYN``."""
+    """YuNet detector + SFace recognizer (``cv2.FaceDetectorYN`` / ``FaceRecognizerSF``).
 
-    def __init__(self, detector_path: Path, recognizer_path: Path, model_id: str,
-                 detector_id: str = "", score_threshold: float = 0.9, nms_threshold: float = 0.3,
-                 top_k: int = 20) -> None:
-        import cv2
-        self._cv2 = cv2
+    The two OpenCV objects are injected so the class can be tested with a
+    stand-in model; ``from_files`` builds the real ones.
+    """
+
+    def __init__(self, detector, recognizer, model_id: str, detector_id: str = "") -> None:
+        self._det, self._rec = detector, recognizer
         self.model_id = model_id          # embedding model: what templates depend on
         self.detector_id = detector_id
-        self._lock = threading.RLock()     # cv2.dnn nets are not re-entrant
+        self._lock = threading.RLock()    # cv2.dnn nets are not re-entrant
         self._size = (320, 240)
+
+    @classmethod
+    def from_files(cls, detector_path: Path, recognizer_path: Path, model_id: str,
+                   detector_id: str = "", score_threshold: float = 0.9,
+                   nms_threshold: float = 0.3, top_k: int = 20) -> "OpenCVEngine":
+        import cv2
         try:
-            self._det = cv2.FaceDetectorYN.create(str(detector_path), "", self._size,
-                                                  score_threshold, nms_threshold, top_k)
-            self._rec = cv2.FaceRecognizerSF.create(str(recognizer_path), "")
+            det = cv2.FaceDetectorYN.create(str(detector_path), "", (320, 240),
+                                            score_threshold, nms_threshold, top_k)
+            rec = cv2.FaceRecognizerSF.create(str(recognizer_path), "")
         except cv2.error as exc:
             raise EngineUnavailable(f"OpenCV {cv2.__version__} cannot load the models: {exc}") from exc
+        return cls(det, rec, model_id, detector_id)
 
     def detect(self, frame: np.ndarray) -> list[Face]:
         h, w = frame.shape[:2]
@@ -124,7 +132,7 @@ def load_engine(paths: Paths | None = None) -> OpenCVEngine:
         if missing:
             raise EngineUnavailable("model files missing or corrupted: " + ", ".join(missing)
                                     + " (run: sudo facial-auth fetch-models)")
-        engine = OpenCVEngine(det, rec, rec_spec.key, det_spec.key)
+        engine = OpenCVEngine.from_files(det, rec, rec_spec.key, det_spec.key)
         # Smoke test: a blank frame must run through the detector without error.
         engine.detect(np.zeros((240, 320, 3), dtype=np.uint8))
         log.info("face engine ready (%s + %s, OpenCV %s)", engine.detector_id, engine.model_id, cv2.__version__)

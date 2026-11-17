@@ -76,11 +76,18 @@ def check(name, cond):
     print(("PASS " if cond else "FAIL ") + name, flush=True)
 
 
-def shot(win, name):
+def shot(win, name, tries=6):
+    """Save a PNG of the window; an empty snapshot (window mid-redraw) is retried."""
     w, h = win.get_width(), win.get_height()
     snap = Gtk.Snapshot()
     Gtk.WidgetPaintable.new(win).snapshot(snap, w, h)
     node = snap.to_node()
+    if node is None:
+        if tries > 0:
+            GLib.timeout_add(250, lambda: (shot(win, name, tries - 1), False)[1])
+        else:
+            print("WARN could not render", name, flush=True)
+        return
     tex = win.get_native().get_renderer().render_texture(node, Graphene.Rect().init(0, 0, w, h))
     tex.save_to_png(str(out / f"{name}.png"))
     print("saved", name, flush=True)
