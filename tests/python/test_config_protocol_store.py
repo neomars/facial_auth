@@ -181,3 +181,14 @@ def test_store_all_templates_and_marker_resync(store):
     (store.paths.markers / "alice").unlink()
     store.sync_markers()
     assert sorted(p.name for p in store.paths.markers.iterdir()) == ["alice", "bob"]
+
+
+def test_shipped_defaults_file_matches_the_built_in_defaults(tmp_path):
+    """data/config/defaults.conf documents the defaults: it must never drift."""
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[2]
+    p = Paths(tmp_path)
+    p.defaults.parent.mkdir(parents=True)
+    p.defaults.write_text((root / "data/config/defaults.conf").read_text())
+    assert Config.load(p).as_dict() == Config.defaults().as_dict()
+    assert Config.load(p).warnings == []

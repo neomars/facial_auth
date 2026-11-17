@@ -1,0 +1,23 @@
+#!/usr/bin/make -f
+export DH_VERBOSE = 0
+
+%:
+	dh $@ --buildsystem=meson --with python3
+
+override_dh_auto_configure:
+	dh_auto_configure -- \
+	    -Dpython=/usr/bin/python3 \
+	    -Dpythondir=/usr/lib/python3/dist-packages \
+	    -Dtests=false
+
+# The package ships its own PAM profile and socket unit: nothing to start by hand.
+override_dh_installsystemd:
+	dh_installsystemd -pfacial-auth --name=facial-authd facial-authd.socket
+	dh_installsystemd -pfacial-auth --name=facial-authd --no-enable --no-start --restart-after-upgrade facial-authd.service
+
+# Creates the unprivileged 'facial-auth' user (not part of the dh sequence at compat 13).
+execute_before_dh_installdeb:
+	dh_installsysusers -pfacial-auth
+
+execute_after_dh_install:
+	rm -rf debian/facial-auth/usr/lib/python3/dist-packages/facial_auth/__pycache__

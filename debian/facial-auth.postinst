@@ -1,0 +1,26 @@
+#!/bin/sh
+set -e
+
+#DEBHELPER#
+
+case "$1" in
+configure)
+    # Add the profile to /etc/pam.d/common-auth (a no-op for accounts without a
+    # linked face: the module returns at once).
+    if command -v pam-auth-update >/dev/null 2>&1; then
+        pam-auth-update --package || true
+    fi
+    # Create/own the state directory in case systemd did not yet.
+    install -d -o facial-auth -g facial-auth -m 0755 /var/lib/facial-auth 2>/dev/null || true
+    # Face models (SHA-256 verified). Best effort: offline installs run it later.
+    if [ ! -e /usr/share/facial-auth/models/.installed ] && command -v facial-auth >/dev/null 2>&1; then
+        if facial-auth fetch-models >/dev/null 2>&1; then
+            touch /usr/share/facial-auth/models/.installed
+        else
+            echo "facial-auth: the face models could not be downloaded now." >&2
+            echo "facial-auth: run 'sudo facial-auth fetch-models' when online (or --from DIR)." >&2
+        fi
+    fi
+    ;;
+esac
+exit 0

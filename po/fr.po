@@ -1,0 +1,776 @@
+# French translation of facial-auth.
+# This file is distributed under the same license as the facial-auth package.
+msgid ""
+msgstr ""
+"Project-Id-Version: facial-auth 0.1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: 2026-11-17 00:00+0000\n"
+"Last-Translator: facial-auth contributors\n"
+"Language-Team: French\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+
+#: pam/pam_facial_auth.c:566
+msgid "Looking for your face..."
+msgstr "Recherche de votre visage..."
+
+#: pam/pam_facial_auth.c:587
+msgid "Face not recognized."
+msgstr "Visage non reconnu."
+
+#: pam/pam_facial_auth.c:618
+msgid "Looking for your face... (or type your password)"
+msgstr "Recherche de votre visage... (ou saisissez votre mot de passe)"
+
+#: pam/pam_facial_auth.c:727
+msgid "Face recognized."
+msgstr "Visage reconnu."
+
+#: src/facial_auth/cli.py:21
+msgid "Look straight at the camera"
+msgstr "Regardez droit vers la caméra"
+
+#: src/facial_auth/cli.py:21
+msgid "Turn your head slightly to the left"
+msgstr "Tournez légèrement la tête vers la gauche"
+
+#: src/facial_auth/cli.py:22
+msgid "Turn your head slightly to the right"
+msgstr "Tournez légèrement la tête vers la droite"
+
+#: src/facial_auth/cli.py:22
+msgid "Tilt your head slightly up"
+msgstr "Inclinez légèrement la tête vers le haut"
+
+#: src/facial_auth/cli.py:23
+msgid "Tilt your head slightly down"
+msgstr "Inclinez légèrement la tête vers le bas"
+
+#: src/facial_auth/cli.py:23
+msgid "Look straight again, smile"
+msgstr "Regardez à nouveau droit devant, souriez"
+
+#: src/facial_auth/cli.py:25
+msgid "no face visible"
+msgstr "aucun visage visible"
+
+#: src/facial_auth/cli.py:25
+msgid "several faces visible"
+msgstr "plusieurs visages visibles"
+
+#: src/facial_auth/cli.py:26
+msgid "too far: come closer"
+msgstr "trop loin : rapprochez-vous"
+
+#: src/facial_auth/cli.py:26
+msgid "too dark"
+msgstr "trop sombre"
+
+#: src/facial_auth/cli.py:27
+msgid "too bright"
+msgstr "trop lumineux"
+
+#: src/facial_auth/cli.py:27
+msgid "blurry: stay still"
+msgstr "flou : ne bougez pas"
+
+#: src/facial_auth/cli.py:61
+msgid "Not authorized (an administrator must approve this action)."
+msgstr "Non autorisé (un administrateur doit approuver cette action)."
+
+#: src/facial_auth/cli.py:62
+msgid "The facial-authd service is not running (try: sudo systemctl start facial-authd)."
+msgstr "Le service facial-authd n'est pas démarré (essayez : sudo systemctl start facial-authd)."
+
+#: src/facial_auth/cli.py:63
+msgid "No suitable camera found."
+msgstr "Aucune caméra utilisable n'a été trouvée."
+
+#: src/facial_auth/cli.py:64
+msgid "The camera is in use by another application."
+msgstr "La caméra est utilisée par une autre application."
+
+#: src/facial_auth/cli.py:65 src/facial_auth/gui/app.py:144
+msgid "Face models are missing: run 'sudo facial-auth fetch-models'."
+msgstr "Les modèles de reconnaissance sont absents : exécutez « sudo facial-auth fetch-models »."
+
+#: src/facial_auth/cli.py:66
+msgid "Not enough usable photos."
+msgstr "Pas assez de photos exploitables."
+
+#: src/facial_auth/cli.py:67
+msgid "The photos do not all show the same person."
+msgstr "Les photos ne montrent pas toutes la même personne."
+
+#: src/facial_auth/cli.py:68
+msgid "No face is linked to this account."
+msgstr "Aucun visage n'est lié à ce compte."
+
+#: src/facial_auth/cli.py:77
+#, python-format
+msgid "Face authentication: %s"
+msgstr "Authentification faciale : %s"
+
+#: src/facial_auth/cli.py:77
+msgid "enabled"
+msgstr "activée"
+
+#: src/facial_auth/cli.py:77
+msgid "disabled"
+msgstr "désactivée"
+
+#: src/facial_auth/cli.py:78 src/facial_auth/cli.py:299
+#, python-format
+msgid "Camera: %s"
+msgstr "Caméra : %s"
+
+#: src/facial_auth/cli.py:78 src/facial_auth/cli.py:299
+#: src/facial_auth/cli.py:306
+msgid "none"
+msgstr "aucune"
+
+#: src/facial_auth/cli.py:79
+#, python-format
+msgid "Models: %s"
+msgstr "Modèles : %s"
+
+#: src/facial_auth/cli.py:79
+msgid "ok"
+msgstr "ok"
+
+#: src/facial_auth/cli.py:79
+#, python-format
+msgid "missing: %s"
+msgstr "manquants : %s"
+
+#: src/facial_auth/cli.py:80
+#, python-format
+msgid "Lid: %s"
+msgstr "Capot : %s"
+
+#: src/facial_auth/cli.py:80
+msgid "closed"
+msgstr "fermé"
+
+#: src/facial_auth/cli.py:80
+msgid "open"
+msgstr "ouvert"
+
+#: src/facial_auth/cli.py:81
+msgid "Accounts:"
+msgstr "Comptes :"
+
+#: src/facial_auth/cli.py:83
+#, python-format
+msgid "%d face(s), %s"
+msgstr "%d visage(s), %s"
+
+#: src/facial_auth/cli.py:83
+msgid "on"
+msgstr "activé"
+
+#: src/facial_auth/cli.py:83
+msgid "off"
+msgstr "désactivé"
+
+#: src/facial_auth/cli.py:83
+msgid "no face"
+msgstr "aucun visage"
+
+#: src/facial_auth/cli.py:84
+#, python-format
+msgid " [locked out for %ds]"
+msgstr " [verrouillé pendant %d s]"
+
+#: src/facial_auth/cli.py:91
+msgid " (not a capture device)"
+msgstr " (n'est pas un périphérique de capture)"
+
+#: src/facial_auth/cli.py:91
+msgid " (virtual)"
+msgstr " (virtuelle)"
+
+#: src/facial_auth/cli.py:99
+msgid "No face is linked to any account."
+msgstr "Aucun visage n'est lié à un compte."
+
+#: src/facial_auth/cli.py:110
+#, python-format
+msgid "Using the %s camera."
+msgstr "Utilisation de la caméra %s."
+
+#: src/facial_auth/cli.py:113
+#, python-format
+msgid "Taking %d photos. %s..."
+msgstr "Prise de %d photos. %s..."
+
+#: src/facial_auth/cli.py:131
+#, python-format
+msgid "  photo %d/%d taken"
+msgstr "  photo %d/%d prise"
+
+#: src/facial_auth/cli.py:142
+#, python-format
+msgid "Linking this face to the account '%s' (administrator approval required)..."
+msgstr "Liaison de ce visage au compte « %s » (approbation d'un administrateur requise)..."
+
+#: src/facial_auth/cli.py:145
+#, python-format
+msgid "Done: face '%s' (%s) is now linked to %s."
+msgstr "Terminé : le visage « %s » (%s) est maintenant lié à %s."
+
+#: src/facial_auth/cli.py:146
+msgid "You can now sign in with your face; the password always remains available."
+msgstr "Vous pouvez désormais vous connecter avec votre visage ; le mot de passe reste toujours disponible."
+
+#: src/facial_auth/cli.py:154
+msgid "Not enough good photos were captured."
+msgstr "Pas assez de bonnes photos ont été capturées."
+
+#: src/facial_auth/cli.py:156 src/facial_auth/cli.py:168
+msgid "Face"
+msgstr "Visage"
+
+#: src/facial_auth/cli.py:173
+msgid "Face removed."
+msgstr "Visage supprimé."
+
+#: src/facial_auth/cli.py:179
+#, python-format
+msgid "Remove every face of %s? [y/N] "
+msgstr "Supprimer tous les visages de %s ? [o/N] "
+
+#: src/facial_auth/cli.py:181
+#, python-format
+msgid "%d face(s) removed."
+msgstr "%d visage(s) supprimé(s)."
+
+#: src/facial_auth/cli.py:188
+msgid "Face authentication enabled for this account."
+msgstr "Authentification faciale activée pour ce compte."
+
+#: src/facial_auth/cli.py:188
+msgid "Face authentication disabled for this account."
+msgstr "Authentification faciale désactivée pour ce compte."
+
+#: src/facial_auth/cli.py:195 src/facial_auth/gui/app.py:267
+msgid "Look at the camera..."
+msgstr "Regardez la caméra..."
+
+#: src/facial_auth/cli.py:198
+#, python-format
+msgid "Recognised (%s camera, similarity %.2f, %.1fs)."
+msgstr "Reconnu (caméra %s, similarité %.2f, %.1f s)."
+
+#: src/facial_auth/cli.py:200
+#, python-format
+msgid "Not recognised (%s)."
+msgstr "Non reconnu (%s)."
+
+#: src/facial_auth/cli.py:216
+#, python-format
+msgid "Service %s: %s"
+msgstr "Service %s : %s"
+
+#: src/facial_auth/cli.py:250
+msgid "Run this command as root: sudo facial-auth fetch-models"
+msgstr "Exécutez cette commande en root : sudo facial-auth fetch-models"
+
+#: src/facial_auth/cli.py:261
+#, python-format
+msgid "Download failed: %s"
+msgstr "Échec du téléchargement : %s"
+
+#: src/facial_auth/cli.py:264
+#, python-format
+msgid "installed %s"
+msgstr "installé : %s"
+
+#: src/facial_auth/cli.py:285
+#, python-format
+msgid "Models (%s + %s) in %s"
+msgstr "Modèles (%s + %s) dans %s"
+
+#: src/facial_auth/cli.py:286
+msgid "sudo facial-auth fetch-models   (offline: --from DIR)"
+msgstr "sudo facial-auth fetch-models   (hors ligne : --from DOSSIER)"
+
+#: src/facial_auth/cli.py:290
+#, python-format
+msgid "PAM socket %s"
+msgstr "Socket PAM %s"
+
+#: src/facial_auth/cli.py:290
+msgid "sudo systemctl enable --now facial-authd.socket"
+msgstr "sudo systemctl enable --now facial-authd.socket"
+
+#: src/facial_auth/cli.py:293
+msgid "PAM stack integration (common-auth)"
+msgstr "Intégration à la pile PAM (common-auth)"
+
+#: src/facial_auth/cli.py:293
+msgid "sudo pam-auth-update --enable facial-auth"
+msgstr "sudo pam-auth-update --enable facial-auth"
+
+#: src/facial_auth/cli.py:294
+msgid "polkit policy installed"
+msgstr "Politique polkit installée"
+
+#: src/facial_auth/cli.py:298
+#, python-format
+msgid "Daemon reachable (up %ds)"
+msgstr "Démon joignable (actif depuis %d s)"
+
+#: src/facial_auth/cli.py:300
+msgid "Plug a camera, or check that the 'facial-auth' user is in the 'video' group"
+msgstr "Branchez une caméra, ou vérifiez que l'utilisateur « facial-auth » est dans le groupe « video »"
+
+#: src/facial_auth/cli.py:302
+msgid "Only a colour webcam: a photo can fool it, so sudo/su/polkit stay on the password."
+msgstr "Seulement une webcam couleur : une photo peut la tromper, donc sudo/su/polkit restent sur le mot de passe."
+
+#: src/facial_auth/cli.py:303
+msgid "An infrared camera is recommended (see docs/SECURITY.md)"
+msgstr "Une caméra infrarouge est recommandée (voir docs/SECURITY.md)"
+
+#: src/facial_auth/cli.py:304
+msgid "Daemon sees the models"
+msgstr "Le démon voit les modèles"
+
+#: src/facial_auth/cli.py:306
+#, python-format
+msgid "Linked accounts: %s"
+msgstr "Comptes liés : %s"
+
+#: src/facial_auth/cli.py:307
+msgid "facial-auth add --user NAME   (or open the 'Face Login' settings app)"
+msgstr "facial-auth add --user NOM   (ou ouvrez l'application « Connexion par le visage »)"
+
+#: src/facial_auth/cli.py:309
+msgid "Daemon reachable"
+msgstr "Démon joignable"
+
+#: src/facial_auth/cli.py:314
+msgid "Face authentication for Ubuntu"
+msgstr "Authentification faciale pour Ubuntu"
+
+#: src/facial_auth/cli.py:321
+msgid "account (default: you)"
+msgstr "compte (par défaut : vous)"
+
+#: src/facial_auth/cli.py:325
+msgid "show the state of the service"
+msgstr "afficher l'état du service"
+
+#: src/facial_auth/cli.py:326
+msgid "list detected cameras"
+msgstr "lister les caméras détectées"
+
+#: src/facial_auth/cli.py:327
+msgid "list linked faces"
+msgstr "lister les visages liés"
+
+#: src/facial_auth/cli.py:328
+msgid "take photos with the camera and link the face to an account"
+msgstr "prendre des photos avec la caméra et lier le visage à un compte"
+
+#: src/facial_auth/cli.py:332
+msgid "link a face from photos (e.g. taken with the Camera app)"
+msgstr "lier un visage à partir de photos (p. ex. prises avec l'application Caméra)"
+
+#: src/facial_auth/cli.py:336
+msgid "remove one face"
+msgstr "supprimer un visage"
+
+#: src/facial_auth/cli.py:338
+msgid "remove every face of an account"
+msgstr "supprimer tous les visages d'un compte"
+
+#: src/facial_auth/cli.py:340
+msgid "enable face authentication for an account"
+msgstr "activer l'authentification faciale pour un compte"
+
+#: src/facial_auth/cli.py:341
+msgid "disable face authentication for an account"
+msgstr "désactiver l'authentification faciale pour un compte"
+
+#: src/facial_auth/cli.py:342
+msgid "check that the camera recognises you"
+msgstr "vérifier que la caméra vous reconnaît"
+
+#: src/facial_auth/cli.py:344
+msgid "show or set where the face may be used (sudo, gdm-password...)"
+msgstr "afficher ou régler où le visage peut être utilisé (sudo, gdm-password...)"
+
+#: src/facial_auth/cli.py:347
+msgid "show or change a setting (e.g. recognition.threshold 0.5)"
+msgstr "afficher ou modifier un réglage (p. ex. recognition.threshold 0.5)"
+
+#: src/facial_auth/cli.py:350
+msgid "download the face models (root)"
+msgstr "télécharger les modèles de reconnaissance (root)"
+
+#: src/facial_auth/cli.py:351
+msgid "install from a directory (offline)"
+msgstr "installer depuis un dossier (hors ligne)"
+
+#: src/facial_auth/cli.py:353
+msgid "diagnose the installation"
+msgstr "diagnostiquer l'installation"
+
+#: src/facial_auth/cli.py:365
+#, python-format
+msgid "Error: %s"
+msgstr "Erreur : %s"
+
+#: src/facial_auth/gui/app.py:23
+msgid "Login screen and lock screen"
+msgstr "Écran de connexion et de verrouillage"
+
+#: src/facial_auth/gui/app.py:23
+msgid "Sign in and unlock your session"
+msgstr "Ouvrir et déverrouiller votre session"
+
+#: src/facial_auth/gui/app.py:24
+msgid "Text console login"
+msgstr "Connexion en console texte"
+
+#: src/facial_auth/gui/app.py:24
+msgid "Login on a virtual terminal (Ctrl+Alt+F3)"
+msgstr "Connexion sur un terminal virtuel (Ctrl+Alt+F3)"
+
+#: src/facial_auth/gui/app.py:25
+msgid "Terminal commands (sudo)"
+msgstr "Commandes du terminal (sudo)"
+
+#: src/facial_auth/gui/app.py:25
+msgid "Run commands as administrator"
+msgstr "Exécuter des commandes en administrateur"
+
+#: src/facial_auth/gui/app.py:26
+msgid "Switch user (su)"
+msgstr "Changer d'utilisateur (su)"
+
+#: src/facial_auth/gui/app.py:26
+msgid "Become another user in a terminal"
+msgstr "Devenir un autre utilisateur dans un terminal"
+
+#: src/facial_auth/gui/app.py:27
+msgid "Administrator prompts"
+msgstr "Demandes d'autorisation administrateur"
+
+#: src/facial_auth/gui/app.py:27
+msgid "Installing software, changing system settings..."
+msgstr "Installer des logiciels, modifier les réglages système..."
+
+#: src/facial_auth/gui/app.py:29
+msgid "Face allowed"
+msgstr "Visage autorisé"
+
+#: src/facial_auth/gui/app.py:29
+msgid "Infrared camera only"
+msgstr "Caméra infrarouge uniquement"
+
+#: src/facial_auth/gui/app.py:30
+msgid "Password only"
+msgstr "Mot de passe uniquement"
+
+#: src/facial_auth/gui/app.py:31
+msgid "Standard"
+msgstr "Standard"
+
+#: src/facial_auth/gui/app.py:31
+msgid "Strict (fewer false accepts, more retries)"
+msgstr "Strict (moins de faux positifs, plus d'essais)"
+
+#: src/facial_auth/gui/app.py:41 src/facial_auth/gui/app.py:63
+msgid "Face Login"
+msgstr "Connexion par le visage"
+
+#: src/facial_auth/gui/app.py:57
+msgid "Refresh"
+msgstr "Actualiser"
+
+#: src/facial_auth/gui/app.py:66 src/facial_auth/gui/app.py:71
+#: src/facial_auth/gui/app.py:150 src/facial_auth/gui/enroll.py:78
+msgid "Camera"
+msgstr "Caméra"
+
+#: src/facial_auth/gui/app.py:66
+msgid "Looking for a camera..."
+msgstr "Recherche d'une caméra..."
+
+#: src/facial_auth/gui/app.py:68
+msgid "Sign in with my face"
+msgstr "Me connecter avec mon visage"
+
+#: src/facial_auth/gui/app.py:69
+msgid "The password always remains available"
+msgstr "Le mot de passe reste toujours disponible"
+
+#: src/facial_auth/gui/app.py:77
+msgid "Accounts"
+msgstr "Comptes"
+
+#: src/facial_auth/gui/app.py:78
+msgid "Linking a face to an account requires an administrator's password."
+msgstr "Lier un visage à un compte nécessite le mot de passe d'un administrateur."
+
+#: src/facial_auth/gui/app.py:82
+msgid "Where can the face be used?"
+msgstr "Où le visage peut-il être utilisé ?"
+
+#: src/facial_auth/gui/app.py:83
+msgid "A colour webcam can be fooled by a photograph: only an infrared camera is trusted for administrator actions."
+msgstr "Une webcam couleur peut être trompée par une photo : seule une caméra infrarouge est approuvée pour les actions d'administration."
+
+#: src/facial_auth/gui/app.py:93
+msgid "Security level"
+msgstr "Niveau de sécurité"
+
+#: src/facial_auth/gui/app.py:94
+msgid "Recognition strictness"
+msgstr "Rigueur de la reconnaissance"
+
+#: src/facial_auth/gui/app.py:126
+msgid "OK"
+msgstr "OK"
+
+#: src/facial_auth/gui/app.py:146
+msgid "No usable camera was found."
+msgstr "Aucune caméra utilisable n'a été trouvée."
+
+#: src/facial_auth/gui/app.py:151
+msgid "Infrared camera: robust against photographs"
+msgstr "Caméra infrarouge : résiste aux photographies"
+
+#: src/facial_auth/gui/app.py:152
+msgid "Colour webcam: convenient, but a photograph may fool it"
+msgstr "Webcam couleur : pratique, mais une photographie peut la tromper"
+
+#: src/facial_auth/gui/app.py:155
+msgid "No camera"
+msgstr "Aucune caméra"
+
+#: src/facial_auth/gui/app.py:156
+msgid "Plug in a webcam or check the 'video' group"
+msgstr "Branchez une webcam ou vérifiez le groupe « video »"
+
+#: src/facial_auth/gui/app.py:193
+msgid " (you)"
+msgstr " (vous)"
+
+#: src/facial_auth/gui/app.py:197 src/facial_auth/gui/enroll.py:46
+msgid "Add a face"
+msgstr "Ajouter un visage"
+
+#: src/facial_auth/gui/app.py:207
+msgid "no face linked"
+msgstr "aucun visage lié"
+
+#: src/facial_auth/gui/app.py:208
+#, python-format
+msgid " — locked for %d s"
+msgstr " — verrouillé pendant %d s"
+
+#: src/facial_auth/gui/app.py:209
+#, python-format
+msgid "%d face(s)"
+msgstr "%d visage(s)"
+
+#: src/facial_auth/gui/app.py:209
+msgid " (disabled)"
+msgstr " (désactivé)"
+
+#: src/facial_auth/gui/app.py:221
+msgid "Infrared"
+msgstr "Infrarouge"
+
+#: src/facial_auth/gui/app.py:221
+msgid "Colour camera"
+msgstr "Caméra couleur"
+
+#: src/facial_auth/gui/app.py:222
+#, python-format
+msgid "%d photos"
+msgstr "%d photos"
+
+#: src/facial_auth/gui/app.py:224
+msgid "Remove this face"
+msgstr "Supprimer ce visage"
+
+#: src/facial_auth/gui/app.py:230
+msgid "Use the face for this account"
+msgstr "Utiliser le visage pour ce compte"
+
+#: src/facial_auth/gui/app.py:234
+msgid "Test"
+msgstr "Tester"
+
+#: src/facial_auth/gui/app.py:251
+msgid "Remove this face?"
+msgstr "Supprimer ce visage ?"
+
+#: src/facial_auth/gui/app.py:252
+msgid "You will no longer be able to sign in with it."
+msgstr "Vous ne pourrez plus vous connecter avec."
+
+#: src/facial_auth/gui/app.py:253
+msgid "Cancel"
+msgstr "Annuler"
+
+#: src/facial_auth/gui/app.py:254 src/facial_auth/gui/enroll.py:258
+msgid "Remove"
+msgstr "Supprimer"
+
+#: src/facial_auth/gui/app.py:260
+msgid "Face removed"
+msgstr "Visage supprimé"
+
+#: src/facial_auth/gui/app.py:274
+#, python-format
+msgid "Recognised (similarity %.2f)"
+msgstr "Reconnu (similarité %.2f)"
+
+#: src/facial_auth/gui/app.py:275
+#, python-format
+msgid "Not recognised (%s)"
+msgstr "Non reconnu (%s)"
+
+#: src/facial_auth/gui/enroll.py:59
+msgid "Continue"
+msgstr "Continuer"
+
+#: src/facial_auth/gui/enroll.py:79
+msgid "Import photos"
+msgstr "Importer des photos"
+
+#: src/facial_auth/gui/enroll.py:106 src/facial_auth/gui/enroll.py:137
+msgid "Starting the camera..."
+msgstr "Démarrage de la caméra..."
+
+#: src/facial_auth/gui/enroll.py:111
+msgid "Take photo"
+msgstr "Prendre une photo"
+
+#: src/facial_auth/gui/enroll.py:113
+msgid "Guided capture"
+msgstr "Capture guidée"
+
+#: src/facial_auth/gui/enroll.py:118
+msgid "No camera available"
+msgstr "Aucune caméra disponible"
+
+#: src/facial_auth/gui/enroll.py:125
+msgid "Use photos from the Camera app"
+msgstr "Utiliser les photos de l'application Caméra"
+
+#: src/facial_auth/gui/enroll.py:126
+#, python-format
+msgid "Take at least %d photos of your face with the Camera app (front view, slightly left, slightly right), then choose them here."
+msgstr "Prenez au moins %d photos de votre visage avec l'application Caméra (de face, légèrement à gauche, légèrement à droite), puis choisissez-les ici."
+
+#: src/facial_auth/gui/enroll.py:128
+msgid "Choose photos..."
+msgstr "Choisir des photos..."
+
+#: src/facial_auth/gui/enroll.py:145
+msgid "The camera could not be started"
+msgstr "La caméra n'a pas pu démarrer"
+
+#: src/facial_auth/gui/enroll.py:192
+msgid "Position your face in the frame"
+msgstr "Placez votre visage dans le cadre"
+
+#: src/facial_auth/gui/enroll.py:192
+msgid "Ready"
+msgstr "Prêt"
+
+#: src/facial_auth/gui/enroll.py:241
+msgid "Remove the current photos before using another source"
+msgstr "Supprimez les photos actuelles avant d'utiliser une autre source"
+
+#: src/facial_auth/gui/enroll.py:263
+#, python-format
+msgid "%d photo(s): at least %d are needed"
+msgstr "%d photo(s) : au moins %d sont nécessaires"
+
+#: src/facial_auth/gui/enroll.py:264
+#, python-format
+msgid "%d photo(s): ready"
+msgstr "%d photo(s) : prêt"
+
+#: src/facial_auth/gui/enroll.py:275
+msgid "Choose photos of your face"
+msgstr "Choisissez des photos de votre visage"
+
+#: src/facial_auth/gui/enroll.py:276
+msgid "Images"
+msgstr "Images"
+
+#: src/facial_auth/gui/enroll.py:302
+#, python-format
+msgid "%s: cannot read this image"
+msgstr "%s : image illisible"
+
+#: src/facial_auth/gui/enroll.py:311
+msgid "no usable face"
+msgstr "aucun visage exploitable"
+
+#: src/facial_auth/gui/enroll.py:324
+msgid "Link this face to an account"
+msgstr "Lier ce visage à un compte"
+
+#: src/facial_auth/gui/enroll.py:325
+msgid "Only an administrator can link a face to an account. You will be asked for an administrator's password."
+msgstr "Seul un administrateur peut lier un visage à un compte. Le mot de passe d'un administrateur vous sera demandé."
+
+#: src/facial_auth/gui/enroll.py:327
+msgid "Account"
+msgstr "Compte"
+
+#: src/facial_auth/gui/enroll.py:328
+msgid "Name of this face"
+msgstr "Nom de ce visage"
+
+#: src/facial_auth/gui/enroll.py:328 src/facial_auth/gui/enroll.py:369
+msgid "My face"
+msgstr "Mon visage"
+
+#: src/facial_auth/gui/enroll.py:329
+msgid "Photos"
+msgstr "Photos"
+
+#: src/facial_auth/gui/enroll.py:335
+msgid "Link this face to the account"
+msgstr "Lier ce visage au compte"
+
+#: src/facial_auth/gui/enroll.py:360
+msgid "infrared camera"
+msgstr "caméra infrarouge"
+
+#: src/facial_auth/gui/enroll.py:360
+msgid "colour camera"
+msgstr "caméra couleur"
+
+#: src/facial_auth/gui/enroll.py:361
+#, python-format
+msgid "%d photos from the %s"
+msgstr "%d photos de la %s"
+
+#: src/facial_auth/gui/enroll.py:378
+msgid "Authentication required"
+msgstr "Authentification requise"
+
+#: src/facial_auth/gui/enroll.py:378
+msgid "Could not link the face"
+msgstr "Impossible de lier le visage"
+
+#: src/facial_auth/gui/enroll.py:381
+#, python-format
+msgid "The face is now linked to %s"
+msgstr "Le visage est maintenant lié à %s"

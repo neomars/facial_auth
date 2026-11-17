@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+
+#DEBHELPER#
+
+case "$1" in
+purge)
+    # Biometric data and downloaded models must not outlive the package.
+    rm -rf /var/lib/facial-auth /usr/share/facial-auth/models
+    ;;
+esac
+exit 0

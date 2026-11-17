@@ -1,0 +1,73 @@
+.TH FACIAL-AUTH 1 "2026-11-17" "facial-auth 0.1.0" "User Commands"
+.SH NAME
+facial-auth \- manage face authentication
+.SH SYNOPSIS
+.B facial-auth
+.I COMMAND
+[\fIOPTIONS\fR]
+.SH DESCRIPTION
+.B facial-auth
+links faces to user accounts and configures where a face may replace the
+password (login screen, lock screen, sudo, su, polkit prompts).  The password
+always remains available: a failed or skipped face scan never prevents a
+classic login.
+.PP
+Linking a face to an account needs administrator rights.  The request is
+authorised by polkit: the administrator is asked for their password
+(graphically, or in the terminal through pkttyagent).
+.SH COMMANDS
+.TP
+.B status
+Show the state of the service, the camera and the accounts.
+.TP
+.B cameras
+List detected cameras and whether they are infrared (IR) or colour (RGB).
+.TP
+.BR list " [" \-u " \fIUSER\fR]"
+List the faces linked to accounts.
+.TP
+.BR add " [" \-u " \fIUSER\fR] [" \-l " \fILABEL\fR] [" \-c " auto|ir|rgb] [" \-n " \fIN\fR]"
+Take N photos (3 to 12, default 5) with the camera, guided by on-screen
+instructions, then link the face to USER.
+.TP
+.BR import " [" \-u " \fIUSER\fR] [" \-l " \fILABEL\fR] \fIPHOTO\fR..."
+Link a face from at least three photos, for instance taken with the Camera
+application.
+.TP
+.BR remove " [" \-u " \fIUSER\fR] \fIID\fR, " clear " [" \-u " \fIUSER\fR]"
+Remove one face, or every face of an account.  Users may always remove their own faces.
+.TP
+.BR enable ", " disable " [" \-u " \fIUSER\fR]"
+Turn face authentication on or off for one account.
+.TP
+.BR test " [" \-c " auto|ir|rgb]"
+Check that the camera recognises you.
+.TP
+.BR service " [\fINAME\fR [any|ir|off]]"
+Show or set where the face may be used, and which camera it requires.
+.TP
+.BR config " [\fIKEY\fR [\fIVALUE\fR]]"
+Show or change a setting such as \fBrecognition.threshold\fR.
+.TP
+.BR fetch-models " [--from \fIDIR\fR]"
+Download the face detection and recognition models (root).  Files are checked
+against pinned SHA-256 sums.
+.TP
+.B doctor
+Diagnose the installation and suggest fixes.
+.SH FILES
+.TP
+.I /etc/facial-auth/facial-auth.conf
+Local configuration.  See \fI/usr/share/facial-auth/defaults.conf\fR.
+.TP
+.I /var/lib/facial-auth/
+Face templates (embeddings only, never photographs) and settings made from the settings application.
+.SH SECURITY
+A colour webcam can be fooled by a photograph.  By default only an infrared
+camera is trusted for sudo, su and polkit.  See
+.I /usr/share/doc/facial-auth/SECURITY.md.gz
+if installed.
+.SH SEE ALSO
+.BR pam_facial_auth (8),
+.BR pam-auth-update (8),
+.BR polkit (8)

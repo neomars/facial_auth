@@ -8,3 +8,7 @@ option('pam_moduledir', type: 'string', value: '',
        description: 'Where to install pam_facial_auth.so (default: libdir/security)')
 option('tests', type: 'boolean', value: true,
        description: 'Build the test helpers (pamtest)')
+option('python', type: 'string', value: 'python3',
+       description: 'Python interpreter to install the package for')
+option('pythondir', type: 'string', value: '',
+       description: 'Where to install the facial_auth package (default: the interpreter site dir)')

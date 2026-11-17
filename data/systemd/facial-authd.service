@@ -1,0 +1,46 @@
+[Unit]
+Description=Facial authentication daemon
+Documentation=man:facial-auth(1)
+Requires=facial-authd.socket
+After=facial-authd.socket dbus.socket
+
+[Service]
+Type=dbus
+BusName=io.github.neomars.FacialAuth1
+ExecStart=/usr/libexec/facial-auth/facial-authd
+ExecReload=/bin/kill -HUP $MAINPID
+User=facial-auth
+Group=facial-auth
+SupplementaryGroups=video
+StateDirectory=facial-auth
+StateDirectoryMode=0755
+UMask=0022
+Restart=on-failure
+RestartSec=2
+
+# The daemon parses images and runs a neural network on untrusted pixels, and
+# it is started by every login: keep it in a tight box.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+DevicePolicy=closed
+DeviceAllow=char-video4linux rw
+MemoryMax=1G
+TasksMax=128

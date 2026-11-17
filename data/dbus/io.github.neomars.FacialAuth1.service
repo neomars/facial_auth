@@ -1,0 +1,5 @@
+[D-BUS Service]
+Name=io.github.neomars.FacialAuth1
+Exec=/bin/false
+User=facial-auth
+SystemdService=facial-authd.service

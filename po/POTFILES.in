@@ -1,0 +1,4 @@
+pam/pam_facial_auth.c
+src/facial_auth/cli.py
+src/facial_auth/gui/app.py
+src/facial_auth/gui/enroll.py
