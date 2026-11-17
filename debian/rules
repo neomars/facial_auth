@@ -10,6 +10,16 @@ override_dh_auto_configure:
 	    -Dpythondir=/usr/lib/python3/dist-packages \
 	    -Dtests=false
 
+# Release builds bundle the face models (data/models/, filled by
+# scripts/fetch-models.py): the package then works offline and on any OpenCV.
+# Without them the package still builds and fetches them at install time.
+override_dh_auto_install:
+	dh_auto_install
+	if ls data/models/*.onnx >/dev/null 2>&1; then \
+	    install -d debian/tmp/usr/share/facial-auth/models; \
+	    install -m 0644 data/models/*.onnx debian/tmp/usr/share/facial-auth/models/; \
+	fi
+
 # The package ships its own PAM profile and socket unit: nothing to start by hand.
 override_dh_installsystemd:
 	dh_installsystemd -pfacial-auth --name=facial-authd facial-authd.socket

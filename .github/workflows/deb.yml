@@ -1,0 +1,208 @@
+# Paquets Debian : compilation, vérification, et publication sur les releases.
+#
+#   * Publier une release sur GitHub (tag vX.Y.Z)  -> les .deb sont compilés,
+#     testés sur une machine propre, puis attachés à la release.
+#   * Pull request                                  -> mêmes étapes, sans publier.
+#   * Lancement manuel (onglet Actions)             -> mêmes étapes ; les paquets
+#     sont téléchargeables depuis la page du run (artefact « paquets-debian »).
+#
+# Voir docs/RELEASE.md.
+name: Paquet Debian
+
+on:
+  release:
+    types: [published]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version Debian des paquets (ex. 0.2.0 ou 0.2.0~rc1). Vide : version de développement."
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deb-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DEBIAN_FRONTEND: noninteractive
+
+jobs:
+  build:
+    name: Compiler les paquets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Déterminer la version des paquets
+        id: version
+        # Les valeurs viennent de l'événement : elles passent par l'environnement
+        # (jamais interpolées dans le script) et sont validées par set-version.sh.
+        env:
+          EVENT: ${{ github.event_name }}
+          TAG: ${{ github.event.release.tag_name }}
+          REQUESTED: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          short="${GITHUB_SHA::7}"
+          base="$(scripts/set-version.sh --current)"
+          case "$EVENT" in
+            release)
+              version="$(scripts/set-version.sh --print --from-tag "$TAG")"
+              ;;
+            workflow_dispatch)
+              if [ -n "$REQUESTED" ]; then
+                version="$(scripts/set-version.sh --print "$REQUESTED")"
+              else
+                version="${base}+git$(date -u +%Y%m%d).${short}"
+              fi
+              ;;
+            *)
+              version="${base}+git$(date -u +%Y%m%d).${short}"
+              ;;
+          esac
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "Version des paquets : ${version}"
+
+      - name: Installer les dépendances de compilation
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends devscripts equivs lintian
+          sudo mk-build-deps --install --remove --tool "apt-get -y --no-install-recommends" debian/control
+          sudo rm -f facial-auth-build-deps_*
+
+      - name: Télécharger les modèles de reconnaissance (SHA-256 vérifié)
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if python3 scripts/fetch-models.py data/models; then
+              break
+            fi
+            if [ "$attempt" = 3 ]; then
+              echo "::error::Téléchargement des modèles impossible après 3 essais"
+              exit 1
+            fi
+            echo "Nouvel essai dans 20 s..."
+            sleep 20
+          done
+
+      - name: Compiler les paquets .deb
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: scripts/build-deb.sh --require-models "$VERSION"
+
+      - name: Contrôler les paquets avec lintian
+        run: lintian --fail-on error dist/*.deb
+
+      - name: Tests (module PAM, démon, D-Bus, ligne de commande)
+        run: |
+          set -uo pipefail
+          sudo apt-get install -y --no-install-recommends \
+            python3-pytest python3-numpy python3-opencv python3-gi python3-gi-cairo \
+            gir1.2-glib-2.0 dbus
+          if ! sudo python3 -m pytest tests/pam tests/python -q; then
+            echo "::warning::Des tests ont échoué au premier essai : nouvel essai des seuls tests en échec"
+            sudo python3 -m pytest tests/pam tests/python -q --lf
+          fi
+
+      - name: Résumé
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          {
+            echo "### Paquets compilés (version ${VERSION})"
+            echo '```'
+            cat dist/SHA256SUMS
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Conserver les paquets
+        uses: actions/upload-artifact@v4
+        with:
+          name: paquets-debian
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+  verify:
+    name: Installer sur une machine propre et tester
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Récupérer le code (tests)
+        uses: actions/checkout@v4
+
+      - name: Récupérer les paquets
+        uses: actions/download-artifact@v4
+        with:
+          name: paquets-debian
+          path: dist
+
+      - name: Installer les paquets (dépendances résolues par apt)
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ./dist/facial-auth_*_amd64.deb ./dist/facial-auth-gtk_*_all.deb
+
+      - name: Contrôler l'installation
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          test "$(facial-auth --version)" = "$VERSION"
+          getent passwd facial-auth
+          python3 - <<'PY'
+          from pathlib import Path
+          from facial_auth import models
+
+          status = models.status()
+          assert status["ok"], f"modèles absents ou invalides : {status}"
+          assert "pam_facial_auth.so" in Path("/etc/pam.d/common-auth").read_text()
+          assert Path("/usr/share/polkit-1/actions/io.github.neomars.FacialAuth1.policy").exists()
+          print("installation conforme :", status)
+          PY
+
+      - name: Tests système (vrai sudo, vrai su, pile PAM générée par pam-auth-update)
+        run: |
+          set -uo pipefail
+          sudo apt-get install -y --no-install-recommends python3-pytest
+          if ! sudo python3 -m pytest tests/system -q; then
+            echo "::warning::Des tests ont échoué au premier essai : nouvel essai des seuls tests en échec"
+            sudo python3 -m pytest tests/system -q --lf
+          fi
+
+  publish:
+    name: Attacher les paquets à la release
+    if: github.event_name == 'release'
+    needs: [build, verify]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Récupérer les paquets
+        uses: actions/download-artifact@v4
+        with:
+          name: paquets-debian
+          path: dist
+
+      - name: Envoyer les fichiers sur la release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          ls -l dist
+          gh release upload "$TAG" dist/*.deb dist/SHA256SUMS --clobber

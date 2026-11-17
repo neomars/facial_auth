@@ -31,3 +31,6 @@ __pycache__/
 
 # Tiny hand-made stand-ins used by the tests (the real models are never committed)
 !tests/fixtures/*.onnx
+
+# Release build output (scripts/build-deb.sh)
+/dist/
