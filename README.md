@@ -36,6 +36,11 @@ Cible : Ubuntu 24.04 LTS (OpenCV 4.6, GNOME/GDM). Python ≥ 3.10. Sur 22.04, le
 ligne de commande devraient fonctionner (OpenCV 4.5.4, non testé) ; l'application graphique exige
 libadwaita ≥ 1.5.
 
+> **Avant d'installer** : gardez un terminal root ouvert (`sudo -s`) pendant l'installation et les
+> premiers essais. Les pannes simulées de ce paquet ne peuvent pas vous empêcher de vous connecter par
+> mot de passe (voir [`docs/RECOVERY.md`](docs/RECOVERY.md)), mais ce guide dit quoi tester et comment
+> tout défaire en une commande.
+
 ### Depuis une release (recommandé)
 
 Chaque [release](../../releases) fournit les paquets `.deb` déjà compilés, **modèles de
@@ -117,17 +122,25 @@ valeurs par défaut : `/usr/share/facial-auth/defaults.conf`).
 
 ## Ce qui a été vérifié — et ce qui ne l'a pas été
 
-Vérifié dans un conteneur Ubuntu 24.04 (135 tests automatisés, plus le parcours graphique sous Xvfb) :
+Vérifié dans un conteneur Ubuntu 24.04 (305 tests automatisés, plus le parcours graphique sous Xvfb) :
 
 * module PAM en C contre le **vrai `pam_unix`**, le **vrai `sudo`** et le **vrai `su`**
   sur un pseudo-terminal : le visage gagne pendant l'invite, mot de passe saisi en
   parallèle réutilisé par `pam_unix` (`PAM_AUTHTOK`), état du terminal restauré,
   frappes non volées, `Ctrl-C`, `sudo -S`, `sudo -n` ;
+* **impossibilité de se retrouver bloqué** : une centaine de pannes provoquées sur le paquet
+  installé (démon figé, absent, bavard, socket piégée ou saturée, module absent ou corrompu,
+  options absurdes…) avec, à chaque fois, le bon mot de passe accepté en un temps borné **et** un
+  mauvais mot de passe refusé — voir [`docs/RECOVERY.md`](docs/RECOVERY.md) ;
+* module PAM reconstruit avec AddressSanitizer, UndefinedBehaviorSanitizer et ThreadSanitizer,
+  puis attaqué (entrées hostiles, démon aléatoire) : aucune anomalie ;
 * chaîne complète module C → socket → démon Python → décision → scan (caméra
   et moteur factices) : verrouillage, services IR, modèles absents, caméra HS… ;
-* API D-Bus sur un vrai bus ; autorisations polkit simulées ;
+* API D-Bus sur un vrai bus ; le démon interrogé contre un **vrai `polkitd`** (politique
+  installée, autorisation d'un autre utilisateur) ; les décisions polkit des tests
+  fonctionnels restent simulées ;
 * application graphique sous Xvfb (parcours complet, captures d'écran) ;
-* paquet : `lintian` propre, installation, `common-auth` généré puis rétabli,
+* paquet : `lintian` propre, installation, mise à jour, `common-auth` généré puis rétabli,
   purge, démon lancé par activation de socket sous l'utilisateur `facial-auth`.
 
 **Non vérifié ici (à essayer sur votre machine, en commençant par
@@ -143,7 +156,8 @@ Vérifié dans un conteneur Ubuntu 24.04 (135 tests automatisés, plus le parcou
   expérimental (`[interaction] gdm-password = parallel`) ; la lecture du code de
   GDM 46 montre que sa conversation PAM est thread-safe, mais cela n'a pas été
   essayé sur un vrai écran de connexion ;
-* les vraies boîtes de dialogue polkit.
+* les vraies boîtes de dialogue polkit (la question posée à `polkitd` est vérifiée, pas l'agent graphique
+  qui demande le mot de passe administrateur).
 
 Limites connues : à l'ouverture de session par le visage, le **trousseau GNOME**
 reste verrouillé (il a besoin du mot de passe) ; le chiffrement de disque (LUKS)
@@ -155,12 +169,16 @@ au démarrage reste au mot de passe ; voir [`docs/SECURITY.md`](docs/SECURITY.md
 meson setup build --prefix=/usr --libdir=lib/x86_64-linux-gnu && ninja -C build
 sudo /usr/bin/python3.12 -m pytest tests/pam tests/python   # PAM + démon + D-Bus + CLI
 xvfb-run -a /usr/bin/python3.12 tests/gui/shoot.py /tmp/shots   # interface + captures
-sudo /usr/bin/python3.12 -m pytest tests/system             # après installation du .deb
+sudo /usr/bin/python3.12 -m pytest tests/system             # après installation du .deb : injection de pannes (≈ 8 min),
+                                                            # vrai polkitd, retrait/purge (FA_DEB_DIR=dist)
+FA_FUZZ_ITERATIONS=5000000 FA_FUZZ_CONVERSATIONS=3000 \
+  sudo /usr/bin/python3.12 -m pytest tests/pam/test_robustness.py   # fuzzing sous ASan/UBSan, campagne longue
 ```
 
 * [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — composants et décisions de conception
 * [`docs/PROTOCOL.md`](docs/PROTOCOL.md) — protocole module PAM ↔ démon
 * [`docs/SECURITY.md`](docs/SECURITY.md) — modèle de menace, limites, vie privée
+* [`docs/RECOVERY.md`](docs/RECOVERY.md) — installation prudente et procédures de secours
 * [`docs/RELEASE.md`](docs/RELEASE.md) — publier une version, paquets `.deb` des releases
 
 Licence : MIT (voir `LICENSE`). Les modèles téléchargés conservent leur propre

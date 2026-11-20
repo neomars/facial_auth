@@ -45,24 +45,42 @@ class PamServer:
         self._lock = threading.Lock()
 
     def serve_forever(self) -> None:
+        """Accept clients until stopped.
+
+        This loop must never die while the daemon lives: the socket would stay
+        open, connections would pile up unanswered in its queue and every login
+        would wait for the module's timeout.  Whatever goes wrong with one
+        client (no thread left, no file descriptor left...) it is turned away
+        with ``SKIP busy`` and the loop carries on.
+        """
         self.listener.settimeout(0.5)
         while not self._stop.is_set():
             try:
                 conn, _ = self.listener.accept()
             except socket.timeout:
                 continue
-            except OSError:
-                break
+            except OSError as exc:
+                if self._stop.is_set() or self.listener.fileno() < 0:
+                    break                      # closed on purpose
+                log.warning("accept failed (%s): retrying", exc)   # EMFILE, ENOMEM...
+                time.sleep(0.2)
+                continue
             with self._lock:
                 busy = self._clients >= MAX_CLIENTS
                 if not busy:
                     self._clients += 1
-            if busy:
-                self._send(conn, protocol.skip("busy"))
-                conn.close()
-                continue
-            threading.Thread(target=self._guard, args=(conn,), daemon=True,
-                             name="pam-client").start()
+            if not busy:
+                try:
+                    threading.Thread(target=self._guard, args=(conn,), daemon=True,
+                                     name="pam-client").start()
+                    continue
+                except RuntimeError as exc:    # "can't start new thread" (TasksMax, memory)
+                    log.warning("cannot start a client thread (%s): refusing this client", exc)
+                    with self._lock:
+                        self._clients -= 1
+            conn.settimeout(1.0)               # a client that does not read must not stall the loop
+            self._send(conn, protocol.skip("busy"))
+            conn.close()
 
     def stop(self) -> None:
         self._stop.set()

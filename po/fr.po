@@ -774,3 +774,42 @@ msgstr "Impossible de lier le visage"
 #, python-format
 msgid "The face is now linked to %s"
 msgstr "Le visage est maintenant lié à %s"
+
+#: src/facial_auth/cli.py
+msgid "Cannot ask polkit whether you may do this (is polkitd installed and running?)."
+msgstr "Impossible d'interroger polkit pour savoir si vous y êtes autorisé (polkitd est-il installé et démarré ?)."
+
+#: src/facial_auth/cli.py
+msgid "PAM module loads"
+msgstr "Le module PAM se charge"
+
+#: src/facial_auth/cli.py
+#, python-format
+msgid "PAM module: %s"
+msgstr "Module PAM : %s"
+
+#: src/facial_auth/cli.py
+msgid "sudo apt install --reinstall facial-auth"
+msgstr "sudo apt install --reinstall facial-auth"
+
+#: src/facial_auth/cli.py
+msgid "The damaged module is in the authentication stack"
+msgstr "Le module endommagé figure dans la pile d'authentification"
+
+#: src/facial_auth/cli.py
+msgid "sudo pam-auth-update --package --remove facial-auth   (password login is unaffected)"
+msgstr "sudo pam-auth-update --package --remove facial-auth   (la connexion par mot de passe n'est pas affectée)"
+
+#: src/facial_auth/cli.py
+msgid "not installed"
+msgstr "non installé"
+
+#: src/facial_auth/cli.py
+#, python-format
+msgid "%s crashed the loader (signal %d)"
+msgstr "%s a fait planter le chargeur (signal %d)"
+
+#: src/facial_auth/cli.py
+#, python-format
+msgid "%s cannot be loaded"
+msgstr "%s ne peut pas être chargé"

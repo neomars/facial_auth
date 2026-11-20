@@ -85,6 +85,16 @@ sans test sur un vrai écran de connexion, la valeur sûre est le mode séquenti
 * `dbus_service.py` — API de gestion, autorisée par polkit (`manage-faces`,
   `configure`, `use-camera`). L'aperçu caméra est renvoyé à l'appelant seul
   (jamais diffusé en signal) et libéré si son propriétaire disparaît.
+  Le démon (utilisateur `facial-auth`, sans privilège) interroge polkit **au sujet
+  d'un autre utilisateur** (l'application qui l'appelle) : `polkitd` ne l'autorise
+  qu'à root ou au « propriétaire » de l'action. Chaque action de la politique
+  déclare donc `org.freedesktop.policykit.owner = unix-user:facial-auth` ; sans cela
+  toute demande échoue en « Non autorisé », quel que soit le mot de passe saisi
+  (`tests/system/test_polkit_real.py` le vérifie avec un vrai `polkitd`).
+* `server.py` — boucle d'acceptation de la socket PAM. Elle ne s'arrête **jamais** tant que
+  le démon vit (plus de thread, plus de descripteur : le client est refusé par
+  `SKIP busy` et la boucle continue) : une socket ouverte mais plus servie ferait attendre
+  chaque connexion jusqu'au délai du module.
 * Le démon **s'arrête seul** après 15 min d'inactivité ; l'activation par socket
   ou D-Bus le relance (Python + OpenCV ne restent pas en mémoire).
 

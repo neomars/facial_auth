@@ -61,6 +61,19 @@
   tout moment supprimer ses visages (`facial-auth clear`) ou désactiver le
   visage pour son compte.
 
+## Disponibilité : ne pas être enfermé dehors
+
+Une panne de ce composant ne doit jamais empêcher de se connecter par mot de passe. Le module PAM ne
+répond jamais « non » (`PAM_IGNORE`), borne chacune de ses attentes avec sa propre horloge, n'est
+activé qu'après s'être chargé une fois dans un processus jetable, et un compte sans visage ne le
+sollicite pas. Chaque panne imaginable (démon figé, socket piégée, module absent ou corrompu…) est
+rejouée contre le paquet installé : voir [`RECOVERY.md`](RECOVERY.md), qui donne aussi les consignes
+d'installation prudente et les procédures de secours.
+
+Une socket accessible à tous (`0666`) permet à un utilisateur local de saturer le démon : le module
+reçoit alors `SKIP busy` ou attend au plus quelques secondes, puis le mot de passe est demandé. Il peut
+ainsi priver les autres du visage, jamais du mot de passe.
+
 ## Durcissement recommandé
 
 * Préférer une caméra infrarouge ; laisser `sudo`/`su`/`polkit` sur `ir`.

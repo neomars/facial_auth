@@ -200,7 +200,8 @@ def test_least_privilege_permissions(wf):
 def test_nothing_is_published_unless_a_release_triggered_the_run(wf):
     pub = wf["jobs"]["publish"]
     assert pub["if"] == "github.event_name == 'release'"
-    assert set(pub["needs"]) == {"build", "verify"}, "publish only after build AND clean-machine verification"
+    assert set(pub["needs"]) == {"build", "verify", "lockout"}, \
+        "publish only after build, clean-machine verification AND the lock-out fault injection"
     script = "\n".join(s["run"] for s in pub["steps"] if "run" in s)
     assert "gh release upload" in script and "--clobber" in script and "SHA256SUMS" in script
 
@@ -233,6 +234,16 @@ def test_the_package_is_verified_on_a_machine_that_did_not_build_it(wf):
     script = "\n".join(s["run"] for s in verify["steps"] if "run" in s)
     assert "apt-get install" in script and "./dist/facial-auth_" in script
     assert "tests/system" in script
+
+
+def test_the_lockout_suite_gates_the_release_on_a_clean_machine(wf):
+    job = wf["jobs"]["lockout"]
+    assert job["needs"] == "build" and job["runs-on"] == "ubuntu-24.04"
+    script = "\n".join(s["run"] for s in job["steps"] if "run" in s)
+    assert "./dist/facial-auth_" in script, "it must test the packages that will be published"
+    assert "tests/system/test_lockout.py" in script
+    verify = "\n".join(s["run"] for s in wf["jobs"]["verify"]["steps"] if "run" in s)
+    assert "--ignore=tests/system/test_lockout.py" in verify, "the slow suite must not run twice"
 
 
 def test_run_scripts_are_valid_shell(wf, tmp_path):

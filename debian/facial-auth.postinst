@@ -5,10 +5,29 @@ set -e
 
 case "$1" in
 configure)
+    # The module enters the authentication stack only once it has been loaded
+    # successfully in a throw-away process.  PAM ignores a module that cannot be
+    # loaded, but nothing can ignore one that kills its host (a corrupted or
+    # truncated file makes the loader die with SIGBUS inside sudo, su, login...).
+    # A module that fails this test is left out, and removed if it was already in.
+    module="$(ls /usr/lib/*/security/pam_facial_auth.so 2>/dev/null | head -n 1 || true)"
+    module_loads=no
+    if [ -n "$module" ] && python3 -c '
+import ctypes, sys
+lib = ctypes.CDLL(sys.argv[1])
+lib.pam_sm_authenticate, lib.pam_sm_setcred' "$module" >/dev/null 2>&1; then
+        module_loads=yes
+    fi
     # Add the profile to /etc/pam.d/common-auth (a no-op for accounts without a
     # linked face: the module returns at once).
     if command -v pam-auth-update >/dev/null 2>&1; then
-        pam-auth-update --package || true
+        if [ "$module_loads" = yes ]; then
+            pam-auth-update --package || true
+        else
+            echo "facial-auth: the PAM module cannot be loaded: it is NOT enabled." >&2
+            echo "facial-auth: password login is unchanged; reinstall the package." >&2
+            pam-auth-update --package --remove facial-auth || true
+        fi
     fi
     # Create/own the state directory in case systemd did not yet.
     install -d -o facial-auth -g facial-auth -m 0755 /var/lib/facial-auth 2>/dev/null || true

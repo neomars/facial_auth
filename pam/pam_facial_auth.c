@@ -50,6 +50,10 @@
 #define PROTO_VERSION 1
 #define SCAN_SLACK_SECONDS 3.0
 #define CANCEL_JOIN_SECONDS 2
+/* How long connect() may keep retrying while the daemon's accept queue is
+ * full.  A full queue means the daemon is overwhelmed or no longer accepting:
+ * the face is not worth a login that never completes. */
+#define QUEUE_FULL_SECONDS 1.0
 /* A conversation that fails sooner than this after the prompt was issued
  * cannot prompt at all (no tty...); later it means the user gave up. */
 #define PROMPT_REFUSED_FAST_SECONDS 0.3
@@ -242,19 +246,46 @@ static int reader_fill(struct reader *rd)
     return 0;
 }
 
-static bool send_all(int fd, const char *buf, size_t len)
+/* Sends everything, or gives up after `limit` seconds.  The socket is
+ * non-blocking: a daemon that does not read must never block a login. */
+static bool send_all(int fd, const char *buf, size_t len, double limit)
 {
+    double deadline = mono_now() + limit;
+
     while (len) {
-        ssize_t w = send(fd, buf, len, MSG_NOSIGNAL);
+        ssize_t w = send(fd, buf, len, MSG_NOSIGNAL | MSG_DONTWAIT);
+
         if (w < 0) {
+            struct pollfd pf = { .fd = fd, .events = POLLOUT };
+            double left;
+            int rc;
+
             if (errno == EINTR)
                 continue;
-            return false;
+            if (errno != EAGAIN && errno != EWOULDBLOCK)
+                return false;
+            left = deadline - mono_now();
+            if (left <= 0)
+                return false;
+            rc = poll(&pf, 1, (int)(left * 1000.0) + 1);
+            if (rc < 0 && errno == EINTR)
+                continue;
+            if (rc <= 0)
+                return false;
+            continue;
         }
         buf += w;
         len -= (size_t)w;
     }
     return true;
+}
+
+/* The daemon is trusted but not infallible: whatever it announces, the
+ * module's own waits stay finite.  NaN fails both comparisons, so it falls
+ * back to the default too. */
+static double sane_timeout(double t)
+{
+    return (t >= 0.5 && t <= 60.0) ? t : 8.0;
 }
 
 static void parse_reply(const char *line, struct reply *r)
@@ -320,6 +351,7 @@ static int connect_daemon(pam_handle_t *pamh, const struct options *o)
 {
     struct sockaddr_un sa = { .sun_family = AF_UNIX };
     struct stat st;
+    double deadline;
     int fd;
 
     if (strlen(o->socket_path) >= sizeof sa.sun_path)
@@ -330,10 +362,21 @@ static int connect_daemon(pam_handle_t *pamh, const struct options *o)
         DBG(pamh, o, "no daemon socket at %s", o->socket_path);
         return -1;
     }
-    fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    /* Non-blocking from the start: a blocking connect() on a Unix socket waits
+     * for ever when the daemon's accept queue is full (daemon wedged, or
+     * flooded by a local user), and nobody could log in any more. */
+    fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
     if (fd < 0)
         return -1;
-    if (connect(fd, (struct sockaddr *)&sa, sizeof sa) != 0) {
+    deadline = mono_now() + QUEUE_FULL_SECONDS;
+    while (connect(fd, (struct sockaddr *)&sa, sizeof sa) != 0) {
+        /* EAGAIN: queue full.  Retry briefly: a busy but alive daemon drains it. */
+        if (errno == EAGAIN && mono_now() < deadline) {
+            (void)poll(NULL, 0, 20);
+            continue;
+        }
+        if (errno == EINTR)
+            continue;
         DBG(pamh, o, "connect(%s): %s", o->socket_path, strerror(errno));
         close(fd);
         return -1;
@@ -493,8 +536,10 @@ static struct prompter *prompter_start(pam_handle_t *pamh)
 static bool prompter_stop(struct prompter *p, bool cancel)
 {
     bool join = false;
+    pthread_t th;
 
     pthread_mutex_lock(&p->mu);
+    th = p->th; /* copied while the thread cannot have freed p yet */
     if (p->done)
         join = true;
     else if (cancel)
@@ -503,8 +548,12 @@ static bool prompter_stop(struct prompter *p, bool cancel)
         p->abandoned = true;
     pthread_mutex_unlock(&p->mu);
 
-    if (!join)
-        return false; /* abandoned: the thread frees itself when it returns */
+    if (!join) {
+        /* Abandoned: it frees p itself when it returns, and nobody will join
+         * it, so let the system reclaim its stack when it ends too. */
+        pthread_detach(th);
+        return false;
+    }
 
     if (cancel) {
         pthread_mutex_lock(&p->mu);
@@ -523,6 +572,7 @@ static bool prompter_stop(struct prompter *p, bool cancel)
             if (!p->done) {
                 p->abandoned = true;
                 pthread_mutex_unlock(&p->mu);
+                pthread_detach(th);
                 return false;
             }
             pthread_mutex_unlock(&p->mu);
@@ -789,7 +839,8 @@ static enum round_result do_round(pam_handle_t *pamh, const struct options *o,
     rc = snprintf(req, sizeof req,
                   "VERIFY v=%d user=%s service=%s tty=%s rhost=%s ruser=%s\n",
                   PROTO_VERSION, u, s, t, h, ru);
-    if (rc < 0 || (size_t)rc >= sizeof req || !send_all(fd, req, (size_t)rc)) {
+    if (rc < 0 || (size_t)rc >= sizeof req ||
+        !send_all(fd, req, (size_t)rc, o->connect_timeout)) {
         *skipped = true;
         goto done;
     }
@@ -821,8 +872,7 @@ static enum round_result do_round(pam_handle_t *pamh, const struct options *o,
         mode = MODE_SEQUENTIAL;
     if (o->forced_mode >= 0)
         mode = o->forced_mode;
-    if (r.timeout < 0.5 || r.timeout > 60.0)
-        r.timeout = 8.0;
+    r.timeout = sane_timeout(r.timeout);
     DBG(pamh, o, "scan accepted: mode=%d timeout=%.1f", mode, r.timeout);
 
     if (mode == MODE_SEQUENTIAL)
