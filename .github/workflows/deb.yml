@@ -177,15 +177,60 @@ jobs:
         run: |
           set -uo pipefail
           sudo apt-get install -y --no-install-recommends python3-pytest
-          if ! sudo python3 -m pytest tests/system -q; then
+          if ! sudo python3 -m pytest tests/system -q --ignore=tests/system/test_lockout.py; then
             echo "::warning::Des tests ont échoué au premier essai : nouvel essai des seuls tests en échec"
-            sudo python3 -m pytest tests/system -q --lf
+            sudo python3 -m pytest tests/system -q --ignore=tests/system/test_lockout.py --lf
           fi
+
+  lockout:
+    name: Pannes simulées - le mot de passe doit toujours passer
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Récupérer le code (tests)
+        uses: actions/checkout@v4
+
+      - name: Récupérer les paquets
+        uses: actions/download-artifact@v4
+        with:
+          name: paquets-debian
+          path: dist
+
+      - name: Installer les paquets (dépendances résolues par apt)
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ./dist/facial-auth_*_amd64.deb ./dist/facial-auth-gtk_*_all.deb
+
+      - name: Injection de pannes (vrai sudo, vrai su, démon et module sabotés)
+        run: |
+          set -uo pipefail
+          sudo apt-get install -y --no-install-recommends python3-pytest
+          run_suite() { sudo env FA_LOCKOUT_REPORT=/tmp/lockout-report.json python3 -m pytest tests/system/test_lockout.py -q "$@"; }
+          if ! run_suite; then
+            echo "::warning::Des tests ont échoué au premier essai : nouvel essai des seuls tests en échec"
+            run_suite --lf
+          fi
+
+      - name: Mesures (délai avant l'invite du mot de passe)
+        if: always()
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, os
+          path = "/tmp/lockout-report.json"
+          rows = json.load(open(path)) if os.path.exists(path) else []
+          print("| Panne simulée | Invite du mot de passe après |\n|---|---|")
+          for r in sorted(rows, key=lambda r: -r["prompt_after_s"])[:25]:
+              print(f"| {r['case']} | {r['prompt_after_s']} s |")
+          print(f"\n{len(rows)} situations vérifiées : bon mot de passe accepté, mauvais refusé.")
+          PY
 
   publish:
     name: Attacher les paquets à la release
     if: github.event_name == 'release'
-    needs: [build, verify]
+    needs: [build, verify, lockout]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:

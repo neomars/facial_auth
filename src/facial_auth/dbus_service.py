@@ -96,8 +96,20 @@ class Authorizer(Protocol):
     def check(self, sender: str, action: str) -> bool: ...
 
 
+class PolkitUnavailable(Exception):
+    """polkit could not be asked (not running, refused the daemon's question...).
+
+    That is not a "no": reporting it as "not authorized, an administrator must approve" sends
+    people to type a password that nobody is going to ask for.
+    """
+
+
 class PolkitAuthorizer:
-    """Asks polkit; blocks while the administrator types their password."""
+    """Asks polkit; blocks while the administrator types their password.
+
+    Returns False when polkit *decided* that the caller may not; raises PolkitUnavailable when
+    polkit could not be asked at all.
+    """
 
     def __init__(self, conn: Gio.DBusConnection) -> None:
         self.conn = conn
@@ -114,7 +126,7 @@ class PolkitAuthorizer:
             return bool(res.unpack()[0][0])
         except GLib.Error as exc:
             log.error("polkit check for %s failed: %s", action, exc.message)
-            return False
+            raise PolkitUnavailable(exc.message) from exc
 
 
 # ------------------------------------------------------------- conversions
@@ -237,7 +249,11 @@ class DBusService:
         return res.unpack()[0]
 
     def require(self, sender: str, action: str) -> None:
-        if not self._authorizer.check(sender, action):
+        try:
+            allowed = self._authorizer.check(sender, action)
+        except PolkitUnavailable as exc:
+            raise ApiError("polkit-unavailable", f"{action}: {exc}") from exc
+        if not allowed:
             raise PermissionError(f"not authorized ({action})")
 
     def require_self_or_admin(self, sender: str, username: str) -> int:

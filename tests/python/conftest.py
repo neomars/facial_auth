@@ -26,10 +26,13 @@ USER = "fadbus"
 
 class Polkit:
     def __init__(self):
-        self.grants, self.asked = set(), []
+        self.grants, self.asked, self.unavailable = set(), [], None
 
     def check(self, sender, action):
         self.asked.append(action)
+        if self.unavailable:                      # polkit cannot be asked at all
+            from facial_auth.dbus_service import PolkitUnavailable
+            raise PolkitUnavailable(self.unavailable)
         return action in self.grants
 
 

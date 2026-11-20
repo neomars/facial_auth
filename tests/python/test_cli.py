@@ -55,6 +55,15 @@ def test_non_admin_gets_a_clear_message(env):
     assert rc == 1 and "Not authorized" in out
 
 
+def test_an_unreachable_polkit_is_not_presented_as_an_administrator_refusal(env):
+    env.polkit.grants = {ACTION_CAMERA, ACTION_MANAGE}
+    env.polkit.unavailable = "polkitd is not running"
+    rc, out = cli(env, "add", "--user", USER, "-n", "3")
+    assert rc == 1 and "Cannot ask polkit" in out and "polkitd is not running" in out
+    assert "administrator must approve" not in out
+    env.polkit.unavailable = None
+
+
 def test_status_cameras_service_config_and_toggle(env):
     rc, out = cli(env, "status")
     assert rc == 0 and "Face authentication: enabled" in out and USER in out

@@ -70,6 +70,22 @@ module renvoie `PAM_IGNORE`, jamais `PAM_AUTH_ERR`, de sorte qu'un échec
 facial ne compte pas comme une tentative de mot de passe et ne verrouille
 jamais le compte.
 
+## Délais : toutes les attentes du module sont bornées par sa propre horloge
+
+Le démon est de confiance mais pas infaillible : rien de ce qu'il dit ou ne dit pas ne peut faire
+attendre une connexion indéfiniment.
+
+| Étape | Borne |
+|---|---|
+| `connect()` (socket non bloquante) | file d'attente pleine : nouvelles tentatives pendant 1 s au plus |
+| envoi de `VERIFY` | `connect_timeout` (4 s par défaut) |
+| attente de `ACCEPT`/`SKIP` | `connect_timeout` (4 s par défaut) |
+| scan (tous modes) | `timeout` annoncé + 3 s de marge ; un `timeout` hors de `[0.5, 60]` ou non numérique (`nan`, `inf`…) devient 8 s |
+| ligne reçue | 1024 octets au plus, terminée par `\n` : sinon la connexion est abandonnée |
+
+Passé une borne, le module renvoie `PAM_IGNORE` et la pile demande le mot de passe. Les seules
+attentes sans borne sont celles que l'utilisateur impose lui-même : le mot de passe qu'il tape.
+
 ## Modes d'interaction
 
 | `mode`         | comportement du module                                                       |

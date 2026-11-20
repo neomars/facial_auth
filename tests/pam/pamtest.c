@@ -51,14 +51,20 @@ static void say(const char *tag, const char *fmt, ...)
 {
     char buf[512];
     va_list ap;
+    int old;
 
     va_start(ap, fmt);
     vsnprintf(buf, sizeof buf, fmt, ap);
     va_end(ap);
+    /* write(2) is a cancellation point: a thread cancelled in here would die
+     * holding out_mu, and its own cancellation handler (which also says
+     * something) would then wait for it for ever. */
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &old);
     pthread_mutex_lock(&out_mu);
     printf("%s %d %s\n", tag, (int)(now() - t0), buf);
     fflush(stdout);
     pthread_mutex_unlock(&out_mu);
+    pthread_setcancelstate(old, &old);
 }
 
 static void sleep_ms(int ms)

@@ -59,6 +59,7 @@ def polkit_text_agent():
 def explain(err: ClientError) -> str:
     table = {
         "access-denied": _("Not authorized (an administrator must approve this action)."),
+        "polkit-unavailable": _("Cannot ask polkit whether you may do this (is polkitd installed and running?)."),
         "daemon-unavailable": _("The facial-authd service is not running (try: sudo systemctl start facial-authd)."),
         "no-camera": _("No suitable camera found."),
         "camera-busy": _("The camera is in use by another application."),
@@ -68,7 +69,7 @@ def explain(err: ClientError) -> str:
         "not-enrolled": _("No face is linked to this account."),
     }
     base = table.get(err.code, "")
-    return f"{base} [{err}]" if base and str(err) and err.code in ("not-enough-faces", "inconsistent") else (base or str(err))
+    return f"{base} [{err}]" if base and str(err) and err.code in ("not-enough-faces", "inconsistent", "polkit-unavailable") else (base or str(err))
 
 
 # ------------------------------------------------------------------ commands
@@ -267,6 +268,31 @@ def cmd_fetch_models(args) -> int:
     return 0
 
 
+PAM_MODULE_GLOBS = ("/usr/lib/*/security/pam_facial_auth.so", "/lib/*/security/pam_facial_auth.so",
+                    "/usr/lib/security/pam_facial_auth.so")
+_LOAD_PROBE = ("import ctypes, sys\n"
+               "lib = ctypes.CDLL(sys.argv[1])\n"
+               "lib.pam_sm_authenticate, lib.pam_sm_setcred\n")
+
+
+def pam_module_problem(globs=PAM_MODULE_GLOBS) -> str | None:
+    """Why the PAM module cannot be used, or None when it loads.
+
+    The module is loaded in a throw-away process: a damaged file can kill whoever
+    loads it (SIGBUS), which must never be the doctor itself - nor sudo.
+    """
+    import glob
+    found = [p for pattern in globs for p in sorted(glob.glob(pattern))]
+    if not found:
+        return _("not installed")
+    r = subprocess.run([sys.executable, "-c", _LOAD_PROBE, found[0]], capture_output=True, text=True, timeout=30)
+    if r.returncode == 0:
+        return None
+    if r.returncode < 0:
+        return _("%s crashed the loader (signal %d)") % (found[0], -r.returncode)
+    return _("%s cannot be loaded") % found[0]
+
+
 def cmd_doctor(args) -> int:
     bad = 0
 
@@ -290,7 +316,13 @@ def cmd_doctor(args) -> int:
     line(sock.exists(), _("PAM socket %s") % sock, _("sudo systemctl enable --now facial-authd.socket"))
     stack = Path("/etc/pam.d/common-auth")
     integrated = stack.exists() and "pam_facial_auth" in stack.read_text()
+    problem = pam_module_problem()
+    line(problem is None, _("PAM module loads") if problem is None else _("PAM module: %s") % problem,
+         _("sudo apt install --reinstall facial-auth"))
     line(integrated, _("PAM stack integration (common-auth)"), _("sudo pam-auth-update --enable facial-auth"))
+    if integrated and problem is not None:
+        line(False, _("The damaged module is in the authentication stack"),
+             _("sudo pam-auth-update --package --remove facial-auth   (password login is unaffected)"))
     line(Path("/usr/share/polkit-1/actions/io.github.neomars.FacialAuth1.policy").exists(), _("polkit policy installed"))
     try:
         c = Client()

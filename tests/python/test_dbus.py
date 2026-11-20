@@ -42,7 +42,7 @@ def fails(env, method, args=None, sig="", conn=None):
 
 @pytest.fixture(autouse=True)
 def reset(env):
-    env.polkit.grants, env.polkit.asked = set(), []
+    env.polkit.grants, env.polkit.asked, env.polkit.unavailable = set(), [], None
     env.scene["identity"] = 1
     env.service.stop_preview(force=True)
     env.service.caller_uid = lambda sender: 0       # an administrator-less caller by default
@@ -193,3 +193,31 @@ def test_recognition_test_for_the_owner(env):
     env.polkit.grants = {ACTION_MANAGE}
     call(env, "ClearFaces", (USER,), "s")
     assert fails(env, "TestRecognition", (USER, ""), "ss").endswith("NotEnrolled")
+
+
+# ------------------------------------------- polkit that cannot be asked is not a "no"
+def test_polkit_that_cannot_be_asked_is_reported_as_such_not_as_a_refusal(env):
+    """Before: any failure to reach polkit (not running, daemon not trusted by it...) surfaced as
+    'Not authorized, an administrator must approve', which nobody could ever do."""
+    env.polkit.unavailable = "GDBus.Error:org.freedesktop.PolicyKit1.Error.Failed: no such action"
+    with pytest.raises(GLib.Error) as exc:
+        call(env, "StartPreview", ("",), "s")
+    assert Gio.DBusError.get_remote_error(exc.value) == "io.github.neomars.FacialAuth1.Error.PolkitUnavailable"
+    assert "no such action" in exc.value.message and ACTION_CAMERA in exc.value.message
+
+
+def test_a_real_refusal_is_still_access_denied(env):
+    env.polkit.grants = set()
+    assert fails(env, "StartPreview", ("",), "s") == "org.freedesktop.DBus.Error.AccessDenied"
+
+
+def test_the_real_authorizer_raises_when_polkit_cannot_be_asked():
+    from facial_auth.dbus_service import PolkitAuthorizer, PolkitUnavailable
+
+    class Conn:
+        def call_sync(self, *args, **kwargs):
+            raise GLib.Error.new_literal(Gio.DBusError.quark(), "The name org.freedesktop.PolicyKit1 was not provided",
+                                         Gio.DBusError.SERVICE_UNKNOWN)
+
+    with pytest.raises(PolkitUnavailable, match="PolicyKit1"):
+        PolkitAuthorizer(Conn()).check(":1.42", ACTION_CAMERA)
