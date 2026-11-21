@@ -80,6 +80,12 @@ sans test sur un vrai écran de connexion, la valeur sûre est le mode séquenti
   (jamais « n'importe quel visage »). Des marqueurs vides `enrolled/<login>`
   permettent au module PAM de ne même pas contacter le démon pour les comptes
   sans visage.
+* `challenge.py` — défi de tête : suivi de points de texture (flux optique), plan de l'intérieur du
+  visage, parallaxe signée du nez ; machine à états (ordre aléatoire, continuité d'identité). Voir
+  `docs/SECURITY.md` pour le principe, les mesures et les limites.
+* `irtest.py` + `trust.py` — vérification d'une caméra « infrarouge » (elle ne doit pas voir un écran de
+  téléphone) et registre des caméras vérifiées (`/var/lib/facial-auth/cameras.json`) ; les services qui
+  exigent l'infrarouge n'acceptent qu'une caméra vérifiée.
 * `v4l2.py` — découverte par ioctl V4L2 : ignore les nœuds de métadonnées,
   refuse `v4l2loopback`/`vivid`, classe IR/RGB (formats `GREY`/`Y8I`… ou nom).
 * `dbus_service.py` — API de gestion, autorisée par polkit (`manage-faces`,

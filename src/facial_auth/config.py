@@ -37,6 +37,10 @@ SCHEMA: dict[tuple[str, str], tuple[str, Any, Any, Any]] = {
     ("camera", "emitter_command"): ("str", "", None, None),
     ("camera", "emitter_stop_command"): ("str", "", None, None),
     ("camera", "allow_virtual"): ("bool", False, None, None),
+    # An "infrared" camera is only trusted for services that require one after it has been shown
+    # a phone screen and seen nothing (facial-auth check-camera): a monochrome sensor without an
+    # infrared filter sees the screen, and a photograph on a phone then unlocks the session.
+    ("camera", "require_ir_check"): ("bool", True, None, None),
 
     # Cosine similarity of SFace embeddings.  0.363 is the zoo's LFW operating
     # point; below 0.30 would be reckless, so that is the hard floor.
@@ -50,22 +54,33 @@ SCHEMA: dict[tuple[str, str], tuple[str, Any, Any, Any]] = {
     ("recognition", "max_fps"): ("float", 15.0, 2.0, 60.0),
     ("recognition", "parallel_start_delay"): ("float", 0.15, 0.0, 2.0),
 
-    ("liveness", "mode"): ("choice", "basic", None, ("off", "basic")),
+    # off | basic (frozen feed) | challenge (basic + "turn your head": proves depth, see challenge.py)
+    ("liveness", "mode"): ("choice", "challenge", None, ("off", "basic", "challenge")),
+    ("liveness", "challenge_timeout"): ("float", 8.0, 3.0, 20.0),
+    # |parallax| of the nose (fraction of the distance between the eyes) that counts as a turn.
+    # A flat picture stays under 0.02 whatever its inclination; a real head reaches ~0.04 at 15 degrees.
+    ("liveness", "challenge_turn"): ("float", 0.025, 0.008, 0.2),
+    ("liveness", "challenge_hold"): ("int", 3, 1, 10),
+    ("liveness", "mirror"): ("bool", False, None, None),
 
     ("security", "max_failures"): ("int", 5, 1, 100),
     ("security", "failure_window"): ("float", 60.0, 5.0, 3600.0),
     ("security", "lockout"): ("float", 60.0, 5.0, 86400.0),
+    # Every new lock-out lasts `lockout_growth` times longer than the previous one (up to
+    # `lockout_max`), so that guessing at the face path is not a matter of patience.
+    ("security", "lockout_growth"): ("float", 2.0, 1.0, 10.0),
+    ("security", "lockout_max"): ("float", 3600.0, 5.0, 86400.0),
     ("security", "allow_root"): ("bool", False, None, None),
     ("security", "abort_if_lid_closed"): ("bool", True, None, None),
     ("security", "abort_if_remote"): ("bool", True, None, None),
 }
 
 # Per-service defaults.  camera class required: any | ir | off.
-# RGB webcams can be fooled by a photograph, so privilege escalation
-# (sudo, su, polkit) needs an infrared camera unless the admin opts in.
+# A colour webcam is fooled by a photograph shown on a phone, so every service needs an
+# infrared camera by default; "any" is an explicit, informed opt-in (see docs/SECURITY.md).
 DEFAULT_SERVICES = {
-    "gdm-password": "any", "lightdm": "any", "sddm": "any", "login": "any",
-    "xscreensaver": "any", "cinnamon-screensaver": "any", "mate-screensaver": "any",
+    "gdm-password": "ir", "lightdm": "ir", "sddm": "ir", "login": "ir",
+    "xscreensaver": "ir", "cinnamon-screensaver": "ir", "mate-screensaver": "ir",
     "sudo": "ir", "sudo-i": "ir", "su": "ir", "su-l": "ir", "polkit-1": "ir",
 }
 DEFAULT_INTERACTION = {

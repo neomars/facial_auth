@@ -26,8 +26,9 @@ SERVICES = [
     ("su", _("Switch user (su)"), _("Become another user in a terminal")),
     ("polkit-1", _("Administrator prompts"), _("Installing software, changing system settings...")),
 ]
-CAMERA_CHOICES = [("any", _("Face allowed")), ("ir", _("Infrared camera only")),
-                  ("off", _("Password only"))]
+# Short labels: a closed drop-down ellipsizes its value (the group's description says why "any" is less safe).
+CAMERA_CHOICES = [("any", _("Any camera (less safe)")),
+                  ("ir", _("Verified infrared only")), ("off", _("Password only"))]
 SECURITY_LEVELS = [(0.45, _("Standard")), (0.55, _("Strict (fewer false accepts, more retries)"))]
 
 
@@ -65,6 +66,10 @@ class Window(Adw.ApplicationWindow):
 
         self.camera_row = Adw.ActionRow(title=_("Camera"), subtitle=_("Looking for a camera..."))
         self.camera_row.add_prefix(Gtk.Image.new_from_icon_name("camera-web-symbolic"))
+        self.verify_btn = Gtk.Button(label=_("Verify"), valign=Gtk.Align.CENTER, visible=False)
+        self.verify_btn.set_tooltip_text(_("Show the camera a phone screen: an infrared camera does not see it"))
+        self.verify_btn.connect("clicked", lambda *_a: self._verify_infrared())
+        self.camera_row.add_suffix(self.verify_btn)
         self.master = Adw.SwitchRow(title=_("Sign in with my face"),
                                     subtitle=_("The password always remains available"))
         self.master.connect("notify::active", self._on_master)
@@ -80,8 +85,8 @@ class Window(Adw.ApplicationWindow):
 
         self.where = Adw.PreferencesGroup(
             title=_("Where can the face be used?"),
-            description=_("A colour webcam can be fooled by a photograph: only an infrared camera "
-                          "is trusted for administrator actions."))
+            description=_("A colour webcam is fooled by a photograph shown on a phone: by default every "
+                          "service needs a verified infrared camera. Allowing any camera is your call."))
         self.page.add(self.where)
         self.service_rows: dict[str, Adw.ComboRow] = {}
         for name, title, sub in SERVICES:
@@ -148,9 +153,18 @@ class Window(Adw.ApplicationWindow):
         self._building = True
         if s["camera"]:
             self.camera_row.set_title(s["camera_name"] or _("Camera"))
-            kind = _("Infrared camera: robust against photographs") if s["camera_class"] == "ir" else \
-                _("Colour webcam: convenient, but a photograph may fool it")
+            check = s.get("camera_ir_check", "n/a")
+            if s["camera_class"] != "ir":
+                kind = _("Colour webcam: a photograph shown on a phone fools it")
+            elif not s.get("require_ir_check", True) or check == "verified":
+                kind = _("Infrared camera: robust against photographs")
+            elif check == "failed":
+                kind = _("This \"infrared\" camera sees a phone screen: a photograph would fool it")
+            else:
+                kind = _("Infrared camera not verified yet: face login waits for the check")
             self.camera_row.set_subtitle(kind)
+            self.verify_btn.set_visible(s["camera_class"] == "ir" and s.get("require_ir_check", True)
+                                        and check != "verified")
         else:
             self.camera_row.set_title(_("No camera"))
             self.camera_row.set_subtitle(_("Plug in a webcam or check the 'video' group"))
@@ -263,10 +277,35 @@ class Window(Adw.ApplicationWindow):
     def _set_enabled(self, user: str, enabled: bool) -> None:
         self.client.call_async("SetUserEnabled", "sb", (user, enabled), lambda o, e: self._guarded(o, e))
 
-    def _test(self, user: str) -> None:
-        self.toast(_("Look at the camera..."))
+    def _verify_infrared(self) -> None:
+        self.verify_btn.set_sensitive(False)
+        self.toast(_("Infrared camera check: first look at the camera, with nothing in front of it..."))
+        sub = self.client.subscribe(
+            "CameraCheckProgress",
+            lambda phase: self.toast(_("Now hold a phone close to the lens, screen on, showing a bright "
+                                       "white page, for about 5 seconds.")) if phase == "show-screen" else None)
 
         def done(out, err):
+            self.client.conn.signal_unsubscribe(sub)
+            self.verify_btn.set_sensitive(True)
+            if err:
+                self.toast(format_error(err))
+                return
+            verdict = out[0]["verdict"]
+            self.toast({"infrared": _("The camera does not see the phone screen: it is infrared."),
+                        "sees-visible-light": _("The camera saw the phone screen: it is not infrared.")}
+                       .get(verdict, _("Inconclusive: hold the screen close to the lens and try again.")))
+            self.reload()
+        self.client.call_async("VerifyInfrared", "", (), done, 120000)
+
+    def _test(self, user: str) -> None:
+        from ..cli import challenge_text
+        self.toast(_("Look at the camera..."))
+        sub = self.client.subscribe("RecognitionProgress",
+                                    lambda phase, detail: self.toast(challenge_text(detail)) if phase == "challenge" else None)
+
+        def done(out, err):
+            self.client.conn.signal_unsubscribe(sub)
             if err:
                 self.toast(format_error(err))
                 return

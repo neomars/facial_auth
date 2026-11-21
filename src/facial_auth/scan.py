@@ -9,6 +9,7 @@ from typing import Callable
 
 import numpy as np
 
+from . import challenge as head_turn
 from . import liveness
 from .camera import FrameSource
 from .config import Config
@@ -36,6 +37,7 @@ class ScanResult:
     frames: int = 0
     seen_face: bool = False
     duration: float = 0.0
+    challenge: dict | None = None   # head-turn test: sequence, peak parallax, steps, reason...
 
 
 class Scanner:
@@ -46,12 +48,15 @@ class Scanner:
     def verify(self, cfg: Config, camera: FrameSource, templates: np.ndarray,
                others: np.ndarray | None, timeout: float, no_face_timeout: float | None = None,
                cancelled: Callable[[], bool] = lambda: False,
-               progress: Callable[[str], None] | None = None) -> ScanResult:
+               progress: Callable[..., None] | None = None, sequence: str = "") -> ScanResult:
         """Look for the face described by ``templates`` until ``timeout``.
 
         ``others`` holds the templates of every *other* enrolled account: the
         probe must beat them by ``impostor_margin`` so that look-alikes
         (siblings) do not unlock each other's session.
+
+        ``sequence`` ("lr" or "rl"): once the face is recognised, the person must also pass the
+        head-turn test (challenge.py) in that order before the scan succeeds.
         """
         threshold = cfg["recognition", "threshold"]
         required = cfg["recognition", "required_matches"]
@@ -65,6 +70,7 @@ class Scanner:
         deadline = start + timeout
         res = ScanResult(ok=False)
         streak: list[float] = []
+        streak_lm: list[np.ndarray] = []
         hashes: list[bytes] = []
         read_failures = 0
         told_face = False
@@ -93,6 +99,7 @@ class Scanner:
             res.frames += 1
             if float(frame.mean()) < dark:        # lens covered / emitter still off
                 streak.clear()
+                streak_lm.clear()
                 hashes.clear()
                 self._pace(t0, period)
                 continue
@@ -101,6 +108,7 @@ class Scanner:
             face = self._main_face(faces)
             if face is None:
                 streak.clear()
+                streak_lm.clear()
                 hashes.clear()
                 self._pace(t0, period)
                 continue
@@ -110,6 +118,7 @@ class Scanner:
                 told_face = True
             if face.size < min_px:                # too far away for a reliable match
                 streak.clear()
+                streak_lm.clear()
                 hashes.clear()
                 self._pace(t0, period)
                 continue
@@ -119,19 +128,89 @@ class Scanner:
             rival = float((others @ vec).max()) if others is not None and len(others) else -1.0
             if score >= threshold and score >= rival + margin:
                 streak.append(score)
+                streak_lm.append(np.asarray(face.landmarks, np.float64))
                 hashes.append(liveness.frame_hash(frame))
             else:
                 streak.clear()
+                streak_lm.clear()
                 hashes.clear()
             if len(streak) >= required:
                 live, why = liveness.check(hashes, live_mode)
                 if not live:
                     log.warning("presentation attack suspected (%s)", why)
                     return finish(False, "spoof")
+                if sequence:
+                    return self._challenge(cfg, camera, templates, others, frame, np.mean(streak_lm, axis=0),
+                                           float(np.mean(streak)), sequence, cancelled, progress, finish, res)
                 return finish(True, "", float(np.mean(streak)))
             self._pace(t0, period)
 
         return finish(False, "mismatch" if res.seen_face else "no-face")
+
+    def _challenge(self, cfg: Config, camera: FrameSource, templates: np.ndarray, others: np.ndarray | None,
+                   base_frame: np.ndarray, base_landmarks: np.ndarray, score: float, sequence: str,
+                   cancelled: Callable[[], bool], progress: Callable[..., None] | None,
+                   finish: Callable[..., ScanResult], res: ScanResult) -> ScanResult:
+        """The identity is recognised: now prove that it has depth (see challenge.py)."""
+        params = head_turn.Params(
+            turn=cfg["liveness", "challenge_turn"], hold=cfg["liveness", "challenge_hold"],
+            timeout=cfg["liveness", "challenge_timeout"], mirror=cfg["liveness", "mirror"],
+            threshold=cfg["recognition", "threshold"], required=cfg["recognition", "required_matches"])
+        margin = cfg["recognition", "impostor_margin"]
+        min_px = cfg["recognition", "min_face_px"]
+        period = 1.0 / cfg["recognition", "max_fps"]
+        dark = cfg["camera", "dark_threshold"]
+        ht = head_turn.HeadTurn(params, sequence, start=self._clock())
+        info: dict = {"sequence": sequence}
+        res.challenge = info
+
+        def verdict(st: head_turn.State) -> ScanResult:
+            info.update(peak=round(st.peak, 4), steps=st.step, points=st.points,
+                        shape=round(st.shape_change, 4), reason=st.reason)
+            log.info("head-turn %s: %s %s (peak %.3f, %d/2 steps, %d points)", sequence, st.verdict,
+                     st.reason or "-", st.peak, st.step, st.points)
+            if st.verdict == "passed":
+                return finish(True, "", score)
+            return finish(False, "spoof" if st.reason in ("flat-surface", "identity-changed") else "challenge")
+
+        if not ht.begin(base_frame, base_landmarks):
+            return verdict(ht.state)
+        if progress:
+            # the module shows the instruction and waits no longer than this (plus its slack)
+            progress("challenge", seq=sequence, timeout=f"{params.timeout:.1f}")
+        read_failures = 0
+        while True:
+            t0 = self._clock()
+            if cancelled():
+                return finish(False, "cancelled")
+            frame = camera.read()
+            if frame is None:
+                read_failures += 1
+                if read_failures > 30:
+                    return finish(False, "camera-error")
+                self._sleep(0.03)
+                continue
+            read_failures = 0
+            res.frames += 1
+            if float(frame.mean()) < dark:
+                self._pace(t0, period)
+                continue
+            face = self._main_face(self.engine.detect(frame))
+            sim, rival = None, -1.0
+            if face is not None and face.size >= min_px:
+                vec = self.engine.embed(frame, face)
+                sim = float((templates @ vec).max())
+                if others is not None and len(others):
+                    rival = float((others @ vec).max())
+            try:
+                st = ht.feed(frame, face is not None, sim, rival, margin, t0)
+            except Exception as exc:  # noqa: BLE001 - a frame OpenCV cannot track must not cut the connection
+                log.error("head-turn: unexpected %s: %s", type(exc).__name__, exc)
+                info["reason"] = "error"
+                return finish(False, "error")
+            if st.verdict != "pending":
+                return verdict(st)
+            self._pace(t0, period)
 
     @staticmethod
     def _main_face(faces: list[Face]) -> Face | None:

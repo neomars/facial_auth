@@ -45,6 +45,7 @@ class EnrollPage(Adw.NavigationPage):
     def __init__(self, window, user: str) -> None:
         super().__init__(title=_("Add a face"), tag="enroll")
         self.win, self.client, self.user = window, window.client, user
+        self._ir_offered = False
         self.photos: list[tuple[bytes, Gdk.Texture]] = []
         self.kind: tuple[str, str] | None = None        # (camera_class, source) of the photos taken
         self.camera_class = ""
@@ -149,6 +150,37 @@ class EnrollPage(Adw.NavigationPage):
         self.camera_class = out[0]
         self._preview_on = True
         GLib.timeout_add(PREVIEW_PERIOD_MS, self._tick)
+        status = getattr(self.win, "status", None) or {}
+        if (self.camera_class == "ir" and status.get("require_ir_check", True)
+                and status.get("camera_ir_check") not in ("verified", "n/a") and not self._ir_offered):
+            self._ir_offered = True
+            self._offer_ir_check()
+
+    def _offer_ir_check(self) -> None:
+        """An "infrared" camera is only a guess from its pixel formats: before a face is enrolled with
+        it, check that it does not see a phone screen (otherwise a photo on a phone would unlock)."""
+        dlg = Adw.AlertDialog(
+            heading=_("Verify the infrared camera"),
+            body=_("This camera looks like an infrared one, but only an infrared camera ignores a phone "
+                   "screen. Until it is verified, services that need infrared will not use your face. "
+                   "You will need a phone showing a bright white page, held close to the lens for a "
+                   "few seconds."))
+        dlg.add_response("later", _("Later"))
+        dlg.add_response("verify", _("Verify now"))
+        dlg.set_response_appearance("verify", Adw.ResponseAppearance.SUGGESTED)
+        dlg.connect("response", lambda _d, response: self._ir_check_chosen(response))
+        dlg.present(self.win)
+
+    def _ir_check_chosen(self, response: str) -> None:
+        if response != "verify":
+            return
+        self.stop_preview()                       # the check needs the camera for itself
+        self.win._verify_infrared()
+        GLib.timeout_add(9000, self._restart_preview_later)
+
+    def _restart_preview_later(self) -> bool:
+        self.start_preview()
+        return False
 
     def stop_preview(self) -> None:
         was = self._preview_on

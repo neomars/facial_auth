@@ -39,8 +39,9 @@ cas, elle vérifie deux choses : le **bon** mot de passe est accepté en un temp
 | Démon qui répond `OK` sans fin de ligne, ou avant la poignée de main | **jamais accepté** (mot de passe demandé) |
 | Socket créée par un autre utilisateur annonçant `OK` | **jamais crue** (mot de passe demandé) |
 | Démon qui annonce le scan puis se tait (écran de connexion, mode séquentiel) | ≈ 5 s (2 s annoncées + 3 s de marge) |
+| Démon qui demande le défi de tête puis se tait (`sudo`, `su`, écran de connexion) | la durée du défi annoncée + 3 s de marge (≈ 11 s au plus par défaut), puis l'invite du mot de passe revient |
 | Valeur absurde annoncée (NaN, négative, démesurée) en mode séquentiel | ≈ 11 s au plus |
-| Mode parallèle (`sudo`, `su`, console, polkit) : n'importe quelle panne du démon | l'invite est déjà affichée : on peut taper le mot de passe pendant le scan |
+| Mode parallèle (`sudo`, `su`, console ; polkit si le défi de tête est désactivé) : n'importe quelle panne du démon | l'invite est déjà affichée : on peut taper le mot de passe pendant le scan |
 | Vrai `facial-authd` figé (`SIGSTOP`) ; vrai démon sans visage enregistré ; 60 connexions inactives | ≈ 4 s ; immédiat ; immédiat |
 
 Et, pour le seul risque qu'aucune configuration PAM ne peut absorber — **un plantage du module
@@ -116,6 +117,7 @@ ouvert, et en vous connectant d'abord depuis un autre terminal virtuel.
 |---|---|
 | Quelques secondes d'attente avant le mot de passe | Normal si la caméra ou le démon est lent. Réglez `[recognition]` (voir `defaults.conf`) ou neutralisez le visage (ci-dessous). |
 | Vous avez un shell root ouvert | `pam-auth-update --package --remove facial-auth` (rétablit `common-auth` à l'identique), ou `apt remove facial-auth`. |
+| Le visage ne vous reconnaît plus ou le défi de tête vous gêne | `[liveness] mode = basic` dans `/etc/facial-auth/facial-auth.conf` retire le défi (une photo suffit alors devant une caméra couleur) ; `facial-auth test --liveness` donne les mesures pour régler `challenge_turn` ; `facial-auth check-camera` si le journal dit `camera-unverified`. |
 | Vous voulez garder le paquet mais couper le visage | `[core] enabled = false` dans `/etc/facial-auth/facial-auth.conf` puis `sudo systemctl restart facial-authd` (le démon relit sa configuration au démarrage), ou `sudo systemctl mask --now facial-authd.socket` (le module trouve alors la socket absente : immédiat), ou `sudo facial-auth disable --user NOM` pour un seul compte, ou décochez *Facial authentication* dans `sudo pam-auth-update`. |
 | Plus de shell root, mais un terminal virtuel utilisable | Connectez-vous avec votre mot de passe sur `Ctrl+Alt+F3` puis `sudo pam-auth-update --package --remove facial-auth`. |
 | Plus aucun accès | Démarrez en **mode de secours** : au démarrage, maintenez `Maj` (BIOS) ou appuyez sur `Échap` (UEFI) pour afficher GRUB → *Options avancées* → *(recovery mode)* → *root*. Puis : `mount -o remount,rw /` et `pam-auth-update --package --remove facial-auth`. |

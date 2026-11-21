@@ -89,7 +89,9 @@ Puis lier votre visage :
 facial-auth-settings                       # application graphique
 sudo facial-auth add --user "$USER"        # ou en ligne de commande
 facial-auth import --user "$USER" ~/Images/Camera/*.jpg   # photos de l'appli Caméra
-facial-auth test                           # « est-ce qu'elle me reconnaît ? »
+facial-auth check-camera                   # la caméra « infrarouge » ne doit pas voir un écran de téléphone
+facial-auth test                           # « est-ce qu'elle me reconnaît ? » (avec le défi de tête)
+facial-auth test --liveness                # idem, et affiche les mesures du défi (pour régler challenge_turn)
 ```
 
 Désinstallation : `sudo apt remove facial-auth` rétablit `common-auth` à
@@ -100,20 +102,27 @@ biométriques et les modèles.
 
 | Contexte | Service PAM | Mode par défaut | Caméra exigée par défaut |
 |---|---|---|---|
-| Écran de connexion et de verrouillage GNOME | `gdm-password` | séquentiel | toute |
-| Console texte (Ctrl+Alt+F3) | `login` | parallèle | toute |
-| `sudo` | `sudo`, `sudo-i` | parallèle | **infrarouge** |
-| `su` | `su`, `su-l` | parallèle | **infrarouge** |
-| Demandes d'administrateur graphiques | `polkit-1` | parallèle (abandon) | **infrarouge** |
+| Écrans de connexion et de verrouillage (GNOME, LightDM, Cinnamon, MATE, SDDM) | `gdm-password`, `lightdm`, `cinnamon-screensaver`… | séquentiel | **infrarouge vérifiée** |
+| Console texte (Ctrl+Alt+F3) | `login` | parallèle | **infrarouge vérifiée** |
+| `sudo` | `sudo`, `sudo-i` | parallèle | **infrarouge vérifiée** |
+| `su` | `su`, `su-l` | parallèle | **infrarouge vérifiée** |
+| Demandes d'administrateur graphiques | `polkit-1` | séquentiel avec le défi | **infrarouge vérifiée** |
 
 * **Séquentiel** : le scan passe en premier (4 s max, 2 s si personne devant la
   caméra), puis le mot de passe est demandé.
 * **Parallèle** : l'invite « Mot de passe » reste affichée pendant le scan ; le
   premier des deux qui aboutit gagne. Valider un mot de passe **vide** relance
   un scan (« réessayer avec mon visage »). `Ctrl-C` abandonne immédiatement.
-* Une **webcam couleur peut être trompée par une photo** : `sudo`, `su` et
-  polkit exigent donc une caméra **infrarouge** tant que vous ne les autorisez pas
-  explicitement (application, ou `sudo facial-auth service sudo any`).
+* **Défi de tête** (par défaut) : une fois le visage reconnu, l'instruction « Tournez lentement la tête
+  vers votre gauche, puis vers votre droite, puis regardez l'écran » s'affiche (l'ordre est tiré au hasard) ;
+  une photo, plane, ne peut pas la suivre. En mode parallèle l'invite en attente est retirée le temps du
+  défi ; en cas d'échec le mot de passe est redemandé. Voir [`docs/SECURITY.md`](docs/SECURITY.md).
+* Une **webcam couleur est trompée par une photo affichée sur un téléphone** : par défaut aucun service
+  ne l'accepte. Autoriser « toute caméra » pour un service est un choix assumé (application, ou
+  `sudo facial-auth service NOM any`).
+* Une caméra « infrarouge » n'est une caméra infrarouge que si elle **ne voit pas un écran de
+  téléphone** : `facial-auth check-camera` le vérifie (l'assistant d'enrôlement le propose) ; tant que
+  ce n'est pas fait, les services qui exigent l'infrarouge n'utilisent pas le visage.
 * Jamais de visage : sessions SSH/distantes, capot fermé, compte verrouillé
   (`passwd -l`), `root`, services non listés.
 
@@ -122,7 +131,7 @@ valeurs par défaut : `/usr/share/facial-auth/defaults.conf`).
 
 ## Ce qui a été vérifié — et ce qui ne l'a pas été
 
-Vérifié dans un conteneur Ubuntu 24.04 (305 tests automatisés, plus le parcours graphique sous Xvfb) :
+Vérifié dans un conteneur Ubuntu 24.04 (396 tests automatisés, plus le parcours graphique sous Xvfb) :
 
 * module PAM en C contre le **vrai `pam_unix`**, le **vrai `sudo`** et le **vrai `su`**
   sur un pseudo-terminal : le visage gagne pendant l'invite, mot de passe saisi en
@@ -135,10 +144,16 @@ Vérifié dans un conteneur Ubuntu 24.04 (305 tests automatisés, plus le parcou
 * module PAM reconstruit avec AddressSanitizer, UndefinedBehaviorSanitizer et ThreadSanitizer,
   puis attaqué (entrées hostiles, démon aléatoire) : aucune anomalie ;
 * chaîne complète module C → socket → démon Python → décision → scan (caméra
-  et moteur factices) : verrouillage, services IR, modèles absents, caméra HS… ;
+  et moteur factices) : verrouillage, services IR, modèles absents, caméra HS… et défi de tête
+  (une tête 3D synthétique qui tourne ouvre la session ; une photo tenue à la main, ou une rotation
+  dans le mauvais ordre, la refuse et le mot de passe est demandé) ;
 * API D-Bus sur un vrai bus ; le démon interrogé contre un **vrai `polkitd`** (politique
   installée, autorisation d'un autre utilisateur) ; les décisions polkit des tests
   fonctionnels restent simulées ;
+* **défi de tête** : suivi optique et parallaxe du nez, sur sept portraits réels déformés comme une feuille
+  tenue à la main et vus par le vrai détecteur de visages (0 passage sur 240 mouvements, y compris avec
+  un reflet qui glisse), sur une tête 3D synthétique (82 à 96 % de réussite d'un geste de 2 s) et en
+  rediffusion dans le mauvais ordre (0 %) — voir [`docs/SECURITY.md`](docs/SECURITY.md) pour les limites ;
 * application graphique sous Xvfb (parcours complet, captures d'écran) ;
 * paquet : `lintian` propre, installation, mise à jour, `common-auth` généré puis rétabli,
   purge, démon lancé par activation de socket sous l'utilisateur `facial-auth`.
@@ -157,7 +172,12 @@ Vérifié dans un conteneur Ubuntu 24.04 (305 tests automatisés, plus le parcou
   GDM 46 montre que sa conversation PAM est thread-safe, mais cela n'a pas été
   essayé sur un vrai écran de connexion ;
 * les vraies boîtes de dialogue polkit (la question posée à `polkitd` est vérifiée, pas l'agent graphique
-  qui demande le mot de passe administrateur).
+  qui demande le mot de passe administrateur) ;
+* le **défi de tête sur de vraies personnes** : les taux de réussite de l'utilisateur viennent d'un modèle
+  de tête 3D, pas de vidéos de vrais visages ; `facial-auth test --liveness` donne les mesures de votre
+  caméra pour régler `liveness.challenge_turn` ;
+* **LightDM / l'écran de verrouillage de Cinnamon** réels : seul le comportement du module avec les
+  messages d'information a été éprouvé (terminaux, `su`, `sudo`, harnais PAM).
 
 Limites connues : à l'ouverture de session par le visage, le **trousseau GNOME**
 reste verrouillé (il a besoin du mot de passe) ; le chiffrement de disque (LUKS)

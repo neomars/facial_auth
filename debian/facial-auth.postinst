@@ -29,6 +29,16 @@ lib.pam_sm_authenticate, lib.pam_sm_setcred' "$module" >/dev/null 2>&1; then
             pam-auth-update --package --remove facial-auth || true
         fi
     fi
+    # 1.1.0 changed two defaults: every service now needs an infrared camera that was *verified* once
+    # (a photograph shown on a phone must not unlock a session), and a head-turn test follows the
+    # recognition.  Say so, once, to whoever upgrades.
+    if [ -n "${2:-}" ] && dpkg --compare-versions "$2" lt 1.1.0~; then
+        echo "facial-auth: the face is now harder to fool with a photograph:" >&2
+        echo "facial-auth:  - an infrared camera must be verified once: run 'facial-auth check-camera';" >&2
+        echo "facial-auth:  - a colour webcam is no longer accepted unless allowed ([services] in /etc/facial-auth/facial-auth.conf);" >&2
+        echo "facial-auth:  - once the face is recognised, a head-turn test follows." >&2
+        echo "facial-auth: until then the face is simply not used: the password is unaffected." >&2
+    fi
     # Create/own the state directory in case systemd did not yet.
     install -d -o facial-auth -g facial-auth -m 0755 /var/lib/facial-auth 2>/dev/null || true
     # Face models (SHA-256 verified). Best effort: offline installs run it later.

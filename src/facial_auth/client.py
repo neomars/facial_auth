@@ -132,3 +132,6 @@ class Client:
 
     def test(self, user: str, camera_class: str = "") -> dict:
         return self.call("TestRecognition", "ss", (user, camera_class), 120000)[0]
+
+    def verify_infrared(self) -> dict:
+        return self.call("VerifyInfrared", "", (), 120000)[0]

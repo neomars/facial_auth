@@ -110,6 +110,18 @@ class Mock:
                     return True
             return False
 
+        for at, line in sorted(scenario.get("states", []), key=lambda e: e[0]):
+            wait = at - (time.monotonic() - start)
+            if wait > 0 and wait_or_close(wait):
+                self.record(event="cancelled", after=round(time.monotonic() - start, 3))
+                return
+            try:
+                conn.sendall((line + "\n").encode())
+            except OSError:
+                return
+            self.record(event="state", line=line)
+        delay = max(0.0, delay - (time.monotonic() - start))
+
         if kind == "HANG":
             wait_or_close(30)
             self.record(event="closed", after=round(time.monotonic() - start, 3))

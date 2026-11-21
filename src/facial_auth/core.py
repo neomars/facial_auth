@@ -16,13 +16,14 @@ from typing import Callable
 
 import numpy as np
 
-from . import models, protocol, scan, system, v4l2
+from . import challenge, irtest, models, protocol, scan, system, v4l2
 from .camera import CameraBroker, CameraBusy, CameraError, FrameSource, OpenCVCamera
 from .config import Config
 from .const import Paths
 from .engine import EngineUnavailable, FaceEngine, load_engine
 from .ratelimit import FailureLimiter
 from .store import FaceStore
+from .trust import CameraTrust
 
 log = logging.getLogger(__name__)
 
@@ -52,6 +53,13 @@ class Decision:
     start_delay: float = 0.0
     camera: v4l2.CameraInfo | None = None
     camera_class: str = ""
+    challenge: bool = False          # the person must also pass the head-turn test
+    challenge_timeout: float = 0.0
+
+    @property
+    def accept_timeout(self) -> float:
+        """What the PAM module is told: it waits for the scan *and* the head turn."""
+        return self.timeout + self.challenge_timeout
 
 
 def _skip(reason: str, **kw) -> Decision:
@@ -71,6 +79,7 @@ class Core:
         self.paths = paths or Paths()
         self.cfg = cfg or Config.load(self.paths)
         self.store = store or FaceStore(self.paths, owner=owner)
+        self.trust = CameraTrust(self.paths, owner=owner)
         self._engine_loader = engine_loader or (lambda: load_engine(self.paths))
         self._camera_factory = camera_factory or self._default_camera
         self._camera_lister = camera_lister or (lambda: v4l2.discover(self.paths))
@@ -80,7 +89,9 @@ class Core:
         self.broker = CameraBroker()
         self.limiter = FailureLimiter(self.cfg["security", "max_failures"],
                                       self.cfg["security", "failure_window"],
-                                      self.cfg["security", "lockout"])
+                                      self.cfg["security", "lockout"],
+                                      growth=self.cfg["security", "lockout_growth"],
+                                      max_lockout=self.cfg["security", "lockout_max"])
         self._cams: tuple[float, list[v4l2.CameraInfo]] = (0.0, [])
         self._lock = threading.Lock()
         self.active = 0                       # running scans / sessions (idle timer)
@@ -92,7 +103,9 @@ class Core:
         self.cfg = Config.load(self.paths)
         self.limiter.configure(self.cfg["security", "max_failures"],
                                self.cfg["security", "failure_window"],
-                               self.cfg["security", "lockout"])
+                               self.cfg["security", "lockout"],
+                               growth=self.cfg["security", "lockout_growth"],
+                               max_lockout=self.cfg["security", "lockout_max"])
 
     def touch(self) -> None:
         self.last_activity = time.monotonic()
@@ -169,17 +182,32 @@ class Core:
         if picked is None:
             cams = [c for c in self.cameras() if c.usable]
             return _skip("camera-class" if cams else "no-camera", **d)
+        if (svc.camera_class == "ir" and cfg["camera", "require_ir_check"]
+                and not self.trust.is_verified(picked[0])):
+            # "infrared" is a guess made from pixel formats: a monochrome sensor without an infrared
+            # filter sees a phone screen.  Until `facial-auth check-camera` shows otherwise it is
+            # not what this service asked for.
+            log.info("%s: camera %s is not verified as infrared (facial-auth check-camera)",
+                     req.service, picked[0].name)
+            return _skip("camera-unverified", **d)
         status = self._models()
         if not status["ok"]:
             log.error("models missing: %s", status["missing"])
             return _skip("internal", **d)
-        parallel = svc.mode != "sequential"
+        with_challenge = cfg["liveness", "mode"] == "challenge"
+        mode = svc.mode
+        if with_challenge and mode == "parallel":
+            # The instruction ("turn your head...") needs a conversation of its own, which a graphical
+            # dialog that keeps its password prompt open cannot give: scan first, then ask.
+            mode = "sequential"
+        parallel = mode != "sequential"
         return Decision(
-            True, "", mode=svc.mode,
+            True, "", mode=mode,
             timeout=cfg["recognition", "timeout" if parallel else "sequential_timeout"],
             no_face_timeout=None if parallel else cfg["recognition", "no_face_timeout"],
             start_delay=cfg["recognition", "parallel_start_delay"] if parallel else 0.0,
-            camera=picked[0], camera_class=picked[1], **d)
+            camera=picked[0], camera_class=picked[1], challenge=with_challenge,
+            challenge_timeout=cfg["liveness", "challenge_timeout"] if with_challenge else 0.0, **d)
 
     def verify(self, d: Decision, cancelled: Callable[[], bool],
                progress: Callable[[str], None] | None = None) -> scan.ScanResult:
@@ -196,10 +224,11 @@ class Core:
                       if uid != d.uid]
             others = np.vstack(rivals) if rivals else None
             try:
+                sequence = challenge.draw_sequence() if d.challenge else ""
                 with self.broker.use(lambda: self._camera_factory(d.camera, d.camera_class),
                                      who=f"verify:{d.username}") as cam:
                     res = scan.Scanner(engine).verify(self.cfg, cam, templates, others, d.timeout,
-                                                      d.no_face_timeout, cancelled, progress)
+                                                      d.no_face_timeout, cancelled, progress, sequence)
             except CameraBusy as exc:
                 log.warning("%s", exc)
                 return scan.ScanResult(False, "camera-error")
@@ -219,12 +248,15 @@ class Core:
     def _record(self, d: Decision, res: scan.ScanResult) -> None:
         if res.ok:
             self.limiter.record_success(d.uid)
-        elif res.reason in ("mismatch", "spoof") and self.limiter.record_failure(d.uid):
+        elif res.reason in ("mismatch", "spoof", "challenge") and self.limiter.record_failure(d.uid):
             log.warning("face login for %s locked for %.0fs after repeated failures",
-                        d.username, self.cfg["security", "lockout"])
+                        d.username, self.limiter.remaining(d.uid))
         log.info("verify user=%s service=%s camera=%s ok=%s reason=%s score=%.2f frames=%d "
-                 "duration=%.1fs", d.username, d.service, d.camera_class, res.ok,
-                 res.reason or "-", res.score, res.frames, res.duration)
+                 "duration=%.1fs%s", d.username, d.service, d.camera_class, res.ok,
+                 res.reason or "-", res.score, res.frames, res.duration,
+                 "" if not res.challenge else " head-turn=%(sequence)s peak=%(peak)s steps=%(steps)s" % {
+                     "sequence": res.challenge.get("sequence", "-"), "peak": res.challenge.get("peak", "-"),
+                     "steps": res.challenge.get("steps", "-")})
 
     # --------------------------------------------------------- management
     def human_users(self) -> list[pwd.struct_passwd]:
@@ -284,7 +316,8 @@ class Core:
                  len(vectors), camera_class, source)
         return rec.public()
 
-    def test_user(self, username: str, camera_class: str | None, cancelled: Callable[[], bool]) -> dict:
+    def test_user(self, username: str, camera_class: str | None, cancelled: Callable[[], bool],
+                  progress: Callable[..., None] | None = None) -> dict:
         """Interactive check used by the settings app ("does it recognise me?")."""
         uid = self.uid_of(username)
         enrolled = self.store.classes_for(uid)
@@ -294,11 +327,65 @@ class Core:
         picked = self.pick_camera(classes)
         if picked is None:
             raise ApiError("no-camera", "no suitable camera found")
+        with_challenge = self.cfg["liveness", "mode"] == "challenge"
         d = Decision(True, uid=uid, username=username, service="test", mode="sequential",
-                     timeout=self.cfg["recognition", "timeout"], camera=picked[0], camera_class=picked[1])
-        res = self.verify(d, cancelled)
-        return {"ok": res.ok, "reason": res.reason, "score": round(res.score, 3),
-                "camera_class": picked[1], "duration": round(res.duration, 2)}
+                     timeout=self.cfg["recognition", "timeout"], camera=picked[0], camera_class=picked[1],
+                     challenge=with_challenge,
+                     challenge_timeout=self.cfg["liveness", "challenge_timeout"] if with_challenge else 0.0)
+        res = self.verify(d, cancelled, progress)
+        out = {"ok": res.ok, "reason": res.reason, "score": round(res.score, 3),
+               "camera_class": picked[1], "duration": round(res.duration, 2)}
+        if res.challenge:
+            out["head_turn"] = ", ".join(f"{k}={v}" for k, v in sorted(res.challenge.items()))
+        return out
+
+    def verify_infrared(self, cancelled: Callable[[], bool], progress: Callable[..., None] | None = None,
+                        baseline_s: float = 2.0, show_s: float = 6.0, clock: Callable[[], float] = time.monotonic,
+                        sleep: Callable[[float], None] = time.sleep) -> dict:
+        """Show the infrared camera a bright phone screen (irtest.py) and record whether it saw it."""
+        picked = self.pick_camera({"ir"})
+        if picked is None:
+            raise ApiError("no-camera", "no infrared camera found")
+        info, _cls = picked
+        acc = irtest.Accumulator(self.cfg["camera", "dark_threshold"])
+        with self._lock:
+            self.active += 1
+        try:
+            with self.broker.use(lambda: self._camera_factory(info, "ir"), who="check-camera") as cam:
+                start, told = clock(), False
+                if progress:
+                    progress("baseline")
+                while True:
+                    elapsed = clock() - start
+                    if cancelled():
+                        raise ApiError("cancelled", "the check was cancelled")
+                    if elapsed >= baseline_s + show_s:
+                        break
+                    if elapsed >= baseline_s and not told:
+                        told = True
+                        if progress:
+                            progress("show-screen")
+                    frame = cam.read()
+                    if frame is None:
+                        sleep(0.03)
+                        continue
+                    (acc.add_baseline if elapsed < baseline_s else acc.add_shown)(frame)
+                    sleep(0.05)
+        except CameraBusy as exc:
+            raise ApiError("camera-busy", str(exc)) from exc
+        except CameraError as exc:
+            raise ApiError("camera-error", str(exc)) from exc
+        finally:
+            with self._lock:
+                self.active -= 1
+            self.touch()
+        result = acc.verdict()
+        if result["verdict"] == "infrared":
+            self.trust.record(info, True, result)
+        elif result["verdict"] == "sees-visible-light":
+            self.trust.record(info, False, result)
+        result["camera"] = info.name
+        return result
 
     def status(self) -> dict:
         cams = self.cameras(refresh=True)
@@ -311,6 +398,9 @@ class Core:
             "cameras": len(cams),
             "camera": pick[0].path if pick else "", "camera_name": pick[0].name if pick else "",
             "camera_class": pick[1] if pick else "",
+            # "unverified": nothing known yet; "failed": it sees a phone screen, so it is no infrared camera
+            "camera_ir_check": (self.trust.status(pick[0]) if pick and pick[1] == "ir" else "n/a"),
+            "require_ir_check": self.cfg["camera", "require_ir_check"],
             "lid_closed": self._lid(),
             "uptime": int(time.time() - self.started),
         }
