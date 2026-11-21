@@ -84,8 +84,11 @@ INTROSPECTION = f"""
       <arg type="s" name="camera_class" direction="in"/>
       <arg type="a{{sv}}" name="result" direction="out"/>
     </method>
+    <method name="VerifyInfrared"><arg type="a{{sv}}" name="result" direction="out"/></method>
     <signal name="FacesChanged"><arg type="s" name="user"/></signal>
     <signal name="ConfigChanged"/>
+    <signal name="RecognitionProgress"><arg type="s" name="phase"/><arg type="s" name="detail"/></signal>
+    <signal name="CameraCheckProgress"><arg type="s" name="phase"/></signal>
   </interface>
 </node>
 """
@@ -179,6 +182,7 @@ class DBusService:
             "StopPreview": self.m_stop_preview, "AddFace": self.m_add_face,
             "RemoveFace": self.m_remove_face, "ClearFaces": self.m_clear,
             "SetUserEnabled": self.m_set_enabled, "TestRecognition": self.m_test,
+            "VerifyInfrared": self.m_verify_infrared,
         }
         node = Gio.DBusNodeInfo.new_for_xml(INTROSPECTION)
         self._iface = node.interfaces[0]
@@ -399,4 +403,20 @@ class DBusService:
     def m_test(self, sender, username, camera_class):
         self.require_self_or_admin(sender, username)
         self.stop_preview(sender)
-        return (vardict(self.core.test_user(username, camera_class or None, lambda: False)),)
+
+        def progress(phase: str, **fields: str) -> None:
+            # "challenge" + seq: the head-turn test asks the person to move (see challenge.py)
+            GLib.idle_add(self.emit, "RecognitionProgress", GLib.Variant("(ss)", (phase, str(fields.get("seq", "")))))
+
+        return (vardict(self.core.test_user(username, camera_class or None, lambda: False, progress)),)
+
+    def m_verify_infrared(self, sender):
+        """Record whether the infrared camera sees a phone screen (needs an administrator: the
+        outcome decides which camera the services that require infrared accept)."""
+        self.require(sender, ACTION_MANAGE)
+        self.stop_preview(sender)
+
+        def progress(phase: str, **_fields: str) -> None:
+            GLib.idle_add(self.emit, "CameraCheckProgress", GLib.Variant("(s)", (phase,)))
+
+        return (vardict(self.core.verify_infrared(lambda: False, progress)),)

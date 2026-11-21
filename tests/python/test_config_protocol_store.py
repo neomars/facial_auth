@@ -16,10 +16,15 @@ from facial_auth.store import FaceStore, MAX_FACES_PER_USER, StoreError
 def test_defaults_are_secure_by_default():
     c = Config.defaults()
     assert c["recognition", "threshold"] >= 0.4
-    assert c.service("sudo").camera_class == "ir", "sudo must require an IR camera by default"
-    assert c.service("gdm-password").camera_class == "any"
+    # A colour webcam is fooled by a photograph on a phone: every service needs an infrared camera
+    # unless the administrator explicitly opts in.
+    assert c.services and all(cls == "ir" for cls in c.services.values()), c.services
+    assert c.service("gdm-password").camera_class == "ir" and c.service("sudo").camera_class == "ir"
     assert c.service("sshd") is None and c.service("cron") is None, "unlisted services are denied"
     assert c["security", "allow_root"] is False
+    assert c["liveness", "mode"] == "challenge", "a photograph must not be enough"
+    assert c["camera", "require_ir_check"] is True, "an \"infrared\" camera is trusted only once verified"
+    assert c["security", "lockout_growth"] > 1.0, "lock-outs must get longer, not repeat"
 
 
 def test_config_files_layer_and_clamp(tmp_path):

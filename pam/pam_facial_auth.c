@@ -85,6 +85,8 @@ struct reply {
     enum reply_kind kind;
     char mode[32];
     char reason[48];
+    char phase[24];
+    char seq[8];
     double timeout;
     double score;
 };
@@ -124,6 +126,20 @@ static void info(pam_handle_t *pamh, const struct options *o, const char *msg)
 {
     if (!o->quiet)
         (void)pam_info(pamh, "%s", msg);
+}
+
+/* The head-turn test (docs/PROTOCOL.md): "left" and "right" are the user's own.  The daemon only
+ * sends a code ("lr" / "rl"), the wording and its translation live here. */
+static bool is_challenge(const struct reply *r)
+{
+    return r->kind == REPLY_STATE && !strcmp(r->phase, "challenge");
+}
+
+static const char *challenge_text(const struct reply *r)
+{
+    if (!strcmp(r->seq, "rl"))
+        return _("Slowly turn your head to your right, then to your left, then look at the screen.");
+    return _("Slowly turn your head to your left, then to your right, then look at the screen.");
 }
 
 /* RFC 3986 percent-encoding; the caller frees the result. */
@@ -321,6 +337,10 @@ static void parse_reply(const char *line, struct reply *r)
             snprintf(r->mode, sizeof r->mode, "%s", eq);
         else if (!strcmp(tok, "reason"))
             snprintf(r->reason, sizeof r->reason, "%s", eq);
+        else if (!strcmp(tok, "phase"))
+            snprintf(r->phase, sizeof r->phase, "%s", eq);
+        else if (!strcmp(tok, "seq"))
+            snprintf(r->seq, sizeof r->seq, "%s", eq);
         else if (!strcmp(tok, "timeout"))
             r->timeout = atof(eq);
         else if (!strcmp(tok, "score"))
@@ -633,6 +653,11 @@ static enum round_result run_sequential(pam_handle_t *pamh,
             DBG(pamh, o, "face scan failed: %s", r.reason);
             break;
         }
+        if (is_challenge(&r)) {
+            info(pamh, o, challenge_text(&r));
+            if (r.timeout > 0.0)  /* the head turn has its own, shorter clock */
+                deadline = mono_now() + sane_timeout(r.timeout) + SCAN_SLACK_SECONDS;
+        }
     }
     info(pamh, o, _("Face not recognized."));
     return ROUND_NONE;
@@ -652,6 +677,9 @@ static enum round_result run_parallel(pam_handle_t *pamh,
     bool face_pending = true, face_ok = false;
     bool prompt_active = true, got_answer = false, aborted = false;
     bool masked = false;
+    /* The head-turn test needs the conversation for itself (terminal frontends only): the pending
+     * password prompt was cancelled for it, nobody else is inside the conversation any more. */
+    bool conv_free = false, challenge_shown = false;
     double deadline;
     enum round_result res = ROUND_NONE;
 
@@ -747,6 +775,33 @@ static enum round_result run_parallel(pam_handle_t *pamh,
                 face_pending = false;
                 close(rd->fd);
                 rd->fd = -1;
+            } else if (is_challenge(&r) && cancel_prompt && !challenge_shown && p) {
+                /* Same gesture as for a recognised face: take the pending password prompt away,
+                 * restore the terminal, then talk.  A graphical frontend (no cancel) cannot be
+                 * interrupted: the daemon never asks it for a head turn. */
+                if (prompt_active) {
+                    conv_free = prompter_stop(p, true);
+                    p = NULL; /* destroyed, or left to free itself: not ours any more */
+                    if (ttyfd >= 0) {
+                        if (have_tio)
+                            tcsetattr(ttyfd, TCSAFLUSH, &tio); /* drops half-typed input */
+                        (void)!write(ttyfd, "\n", 1);
+                    }
+                    prompt_active = false;
+                    if (masked) {
+                        pthread_sigmask(SIG_SETMASK, &saved, NULL);
+                        masked = false;
+                    }
+                } else {
+                    conv_free = true; /* the prompt thread already ended: nobody is in the conversation */
+                }
+                challenge_shown = true;
+                if (conv_free)
+                    info(pamh, o, challenge_text(&r));
+                /* No password prompt is visible any more: do not wait for a silent daemon longer
+                 * than the head turn can last. */
+                if (r.timeout > 0.0)
+                    deadline = mono_now() + sane_timeout(r.timeout) + SCAN_SLACK_SECONDS;
             }
         } else if (rc < 0 && face_pending) {
             /* daemon vanished: only the password remains */
@@ -765,12 +820,15 @@ static enum round_result run_parallel(pam_handle_t *pamh,
 
     if (face_ok) {
         /* The face won (also when the password finished at the same time). */
-        bool gone = prompter_stop(p, cancel_prompt);
+        bool gone = conv_free;
 
-        if (cancel_prompt && ttyfd >= 0) {
-            if (have_tio)
-                tcsetattr(ttyfd, TCSAFLUSH, &tio); /* drops half-typed input */
-            (void)!write(ttyfd, "\n", 1);
+        if (p) {
+            gone = prompter_stop(p, cancel_prompt);
+            if (cancel_prompt && ttyfd >= 0) {
+                if (have_tio)
+                    tcsetattr(ttyfd, TCSAFLUSH, &tio); /* drops half-typed input */
+                (void)!write(ttyfd, "\n", 1);
+            }
         }
         /* Only talk through the conversation when no other thread is inside it. */
         if (cancel_prompt && gone)
@@ -799,7 +857,10 @@ static enum round_result run_parallel(pam_handle_t *pamh,
             res = ROUND_RESCAN; /* empty answer: "try my face again" */
         }
     }
-    prompter_stop(p, cancel_prompt);
+    if (p)
+        prompter_stop(p, cancel_prompt);
+    if (conv_free)
+        info(pamh, o, _("Face not recognized.")); /* the head-turn test failed: the password follows */
 
 out:
     if (ttyfd >= 0)

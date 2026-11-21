@@ -42,13 +42,14 @@ SKIP reason=not-enrolled
 ```
 
 * `ACCEPT` : la tentative démarre. `mode` indique comment le module doit
-  gérer le mot de passe pendant le scan, `timeout` est la durée maximale du
-  scan (secondes).
+  gérer le mot de passe pendant le scan, `timeout` est la durée maximale de
+  l'ensemble (secondes) : reconnaissance **et** défi de tête quand il est actif.
 * `SKIP` : ne rien faire ; le module renvoie `PAM_IGNORE` et la pile PAM
   continue avec le mot de passe. `reason` ∈ `not-enrolled`, `disabled`,
   `service-denied`, `remote-session`, `lid-closed`, `no-camera`,
-  `camera-class`, `busy`, `locked-out`, `root-denied`, `user-unknown`,
-  `bad-request`, `internal`.
+  `camera-class`, `camera-unverified` (caméra « infrarouge » pas encore
+  vérifiée par `facial-auth check-camera`), `busy`, `locked-out`,
+  `root-denied`, `user-unknown`, `bad-request`, `internal`.
 
 Après `ACCEPT`, le démon envoie zéro ou plusieurs `STATE` puis exactement un
 message final :
@@ -56,11 +57,27 @@ message final :
 ```
 STATE phase=searching
 STATE phase=face
+STATE phase=challenge seq=lr timeout=8.0
 OK score=0.612
 FAIL reason=timeout
 ```
 
-`FAIL reason` ∈ `timeout`, `no-face`, `mismatch`, `spoof`, `camera-error`,
+`STATE phase=challenge seq=lr|rl timeout=8.0` : le visage est reconnu, la personne doit
+maintenant tourner la tête (`lr` : vers *sa* gauche puis vers sa droite ; `rl` :
+l'inverse, voir `challenge.py`). `timeout` est la durée du défi seul : à partir de là, le
+module n'attend plus que cette durée (+ 3 s de marge) au lieu de ce qui reste du budget annoncé
+par `ACCEPT`. Le démon n'envoie que ces codes ; **le texte de
+l'instruction et sa traduction sont dans le module**, qui l'affiche par
+`pam_info`. En mode `sequential` c'est immédiat ; en `parallel-tty` le module
+annule d'abord l'invite de mot de passe en attente (comme pour un visage
+reconnu : état du terminal rétabli) pour avoir la conversation à lui, et, si le
+défi échoue, `pam_unix` redemande le mot de passe ; en `parallel` (dialogue
+graphique qui garde son invite ouverte) l'invite ne peut pas être interrompue :
+le démon n'y demande pas de défi (il passe le service en `sequential`).
+
+`FAIL reason` ∈ `timeout`, `no-face`, `mismatch`, `spoof` (surface plane ou
+autre personne pendant le défi), `challenge` (visage reconnu mais défi non
+accompli : délai dépassé, pas assez de texture, visage perdu), `camera-error`,
 `cancelled`, `error`.
 
 Un module ne considère l'authentification réussie que sur `OK`, reçu sur une

@@ -36,7 +36,8 @@ static unsigned pick(unsigned n)
 
 static const char *const TOKENS[] = {
     "ACCEPT", "SKIP", "STATE", "OK", "FAIL", "VERIFY", "accept", " ", "  ", "\t", "\r", "=", "==", "mode=",
-    "timeout=", "score=", "reason=", "parallel", "parallel-tty", "sequential", "bogus", "nan", "NaN",
+    "timeout=", "score=", "reason=", "phase=", "seq=", "challenge", "lr", "rl", "STATE phase=challenge seq=lr",
+    "parallel", "parallel-tty", "sequential", "bogus", "nan", "NaN",
     "inf", "-inf", "-1", "0", "1e999", "1e-999", "0x1p3", "99999999999999999999", "%", "%00", "%zz",
     "\xff", "\xc3\x28", "A", "..", "/", "mode=parallel-tty", "timeout=2", "timeout=nan", "score=0.99",
 };

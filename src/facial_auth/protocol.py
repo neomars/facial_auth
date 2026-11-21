@@ -12,11 +12,14 @@ MODES = ("sequential", "parallel", "parallel-tty")
 
 SKIP_REASONS = (
     "not-enrolled", "disabled", "service-denied", "remote-session", "lid-closed",
-    "no-camera", "camera-class", "busy", "locked-out", "root-denied",
+    "no-camera", "camera-class", "camera-unverified", "busy", "locked-out", "root-denied",
     "user-unknown", "bad-request", "internal",
 )
-FAIL_REASONS = ("timeout", "no-face", "mismatch", "spoof", "camera-error",
+# "challenge": the identity was recognised but the head-turn test was not completed;
+# "spoof": it showed a flat picture or another person.
+FAIL_REASONS = ("timeout", "no-face", "mismatch", "spoof", "challenge", "camera-error",
                 "cancelled", "error")
+CHALLENGE_SEQUENCES = ("lr", "rl")
 
 
 class ProtocolError(ValueError):
@@ -86,8 +89,10 @@ def skip(reason: str) -> bytes:
     return f"SKIP reason={reason}\n".encode()
 
 
-def state(phase: str) -> bytes:
-    return f"STATE phase={phase}\n".encode()
+def state(phase: str, **fields: object) -> bytes:
+    """``STATE phase=face``, or ``STATE phase=challenge seq=lr`` (the module shows the instruction)."""
+    extra = "".join(f" {k}={enc(v)}" for k, v in fields.items())
+    return f"STATE phase={phase}{extra}\n".encode()
 
 
 def ok(score: float) -> bytes:

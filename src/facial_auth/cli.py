@@ -191,15 +191,79 @@ def cmd_toggle(enabled: bool):
     return run
 
 
+def challenge_text(seq: str) -> str:
+    if seq == "rl":
+        return _("Slowly turn your head to your right, then to your left, then look at the camera.")
+    return _("Slowly turn your head to your left, then to your right, then look at the camera.")
+
+
+def run_with_signals(c: Client, method: str, sig: str, args: tuple, handlers: dict, timeout_ms: int = 120000):
+    """A D-Bus call whose progress signals are delivered while it runs (needs a main loop)."""
+    from gi.repository import GLib
+    loop, box = GLib.MainLoop(), {}
+    subs = [c.subscribe(name, callback) for name, callback in handlers.items()]
+
+    def done(out, err):
+        box["out"], box["err"] = out, err
+        loop.quit()
+
+    c.call_async(method, sig, args, done, timeout_ms)
+    loop.run()
+    for sub in subs:
+        c.conn.signal_unsubscribe(sub)
+    if box["err"]:
+        raise box["err"]
+    return box["out"][0]
+
+
+def run_test(c: Client, user: str, camera_class: str, on_progress) -> dict:
+    return run_with_signals(c, "TestRecognition", "ss", (user, camera_class), {"RecognitionProgress": on_progress})
+
+
 def cmd_test(args, c: Client) -> int:
     user = args.user or default_user()
     say(_("Look at the camera..."))
-    r = c.test(user, "" if args.camera == "auto" else args.camera)
+
+    def progress(phase: str, detail: str) -> None:
+        if phase == "challenge":
+            say(challenge_text(detail))
+
+    r = run_test(c, user, "" if args.camera == "auto" else args.camera, progress)
     if r["ok"]:
         say(_("Recognised (%s camera, similarity %.2f, %.1fs).") % (r["camera_class"].upper(), r["score"], r["duration"]))
+    else:
+        say(_("Not recognised (%s).") % r["reason"])
+    if args.liveness and r.get("head_turn"):
+        say(_("Head-turn measurements: %s") % r["head_turn"])
+    return 0 if r["ok"] else 1
+
+
+def cmd_check_camera(args, c: Client) -> int:
+    """Show the "infrared" camera a phone screen: a real infrared camera does not see it."""
+    say(_("Infrared camera check: first look at the camera, with nothing in front of it..."))
+
+    def progress(phase: str) -> None:
+        if phase == "show-screen":
+            say(_("Now hold a phone close to the lens, screen on, showing a bright white page, "
+                  "for about 5 seconds."))
+
+    with polkit_text_agent():
+        r = run_with_signals(c, "VerifyInfrared", "", (), {"CameraCheckProgress": progress})
+    what = r.get("camera", "")
+    if r["verdict"] == "infrared":
+        say(_("✔ %s does not see the phone screen: it is a real infrared camera.") % what)
+        say(_("Services that require infrared accept it from now on."))
         return 0
-    say(_("Not recognised (%s).") % r["reason"])
-    return 1
+    if r["verdict"] == "sees-visible-light":
+        say(_("✘ %s saw the phone screen: it is not an infrared camera, a photograph shown on a phone "
+              "would fool it.") % what)
+        say(_("Services that require infrared will not accept it. Use another camera, or allow the "
+              "colour webcam knowingly (docs/SECURITY.md)."))
+        return 1
+    reason = {"nothing-shown": _("Nothing seems to have been held in front of the camera."),
+              "too-few-frames": _("The camera gave too few pictures.")}.get(r.get("reason", ""), _("The result is ambiguous."))
+    say(_("? %s Try again, with the screen close to the lens and at full brightness.") % reason)
+    return 2
 
 
 def cmd_service(args, c: Client) -> int:
@@ -331,8 +395,17 @@ def cmd_doctor(args) -> int:
         line(bool(s["camera"]), _("Camera: %s") % (f"{s['camera_name']} [{s['camera_class'].upper()}]" if s["camera"] else _("none")),
              _("Plug a camera, or check that the 'facial-auth' user is in the 'video' group"))
         if s["camera"] and s["camera_class"] == "rgb":
-            line(None, _("Only a colour webcam: a photo can fool it, so sudo/su/polkit stay on the password."),
+            line(None, _("Only a colour webcam: a photograph shown on a phone fools it, so by default no "
+                         "service uses the face."),
                  _("An infrared camera is recommended (see docs/SECURITY.md)"))
+        if s["camera"] and s["camera_class"] == "ir" and s["require_ir_check"]:
+            check = s["camera_ir_check"]
+            if check == "failed":
+                line(False, _("This \"infrared\" camera sees a phone screen: a photograph on a phone would fool it"),
+                     _("Use another camera, or set camera.require_ir_check = false knowingly"))
+            else:
+                line(check == "verified", _("Infrared camera verified"),
+                     _("facial-auth check-camera   (until then, no service that needs infrared uses the face)"))
         line(s["models_ok"], _("Daemon sees the models"))
         enrolled = [u["name"] for u in c.users() if u["faces"]]
         line(bool(enrolled), _("Linked accounts: %s") % (", ".join(enrolled) or _("none")),
@@ -371,8 +444,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("-y", "--yes", action="store_true")
     add("enable", cmd_toggle(True), _("enable face authentication for an account"))
     add("disable", cmd_toggle(False), _("disable face authentication for an account"))
+    add("check-camera", cmd_check_camera, _("check that the infrared camera does not see a phone screen"), user=False)
     p = add("test", cmd_test, _("check that the camera recognises you"))
     p.add_argument("-c", "--camera", choices=("auto", "ir", "rgb"), default="auto")
+    p.add_argument("--liveness", action="store_true",
+                   help=_("also print the head-turn measurements (to tune liveness.challenge_turn)"))
     p = add("service", cmd_service, _("show or set where the face may be used (sudo, gdm-password...)"), user=False)
     p.add_argument("name", nargs="?")
     p.add_argument("value", nargs="?", choices=("any", "ir", "off"))

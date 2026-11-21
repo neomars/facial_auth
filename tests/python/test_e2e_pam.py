@@ -52,7 +52,8 @@ def env(build_dir, tmp_path_factory):
     conf = ["[services]"] + [f"{s} = {c}" for s, c in classes.items()] + ["[interaction]"] \
         + [f"{s} = {m}" for s, m in SERVICES.items()]
     paths.config.parent.mkdir(parents=True)
-    paths.config.write_text("\n".join(conf) + "\n[recognition]\nsequential_timeout = 2\ntimeout = 3\n"
+    paths.config.write_text("\n".join(conf) + "\n[liveness]\nmode = basic\n"
+                            "[recognition]\nsequential_timeout = 2\ntimeout = 3\n"
                             "no_face_timeout = 0.8\nparallel_start_delay = 0.1\nrequired_matches = 3\n"
                             "[security]\nmax_failures = 3\nlockout = 30\n")
     e.paths = paths

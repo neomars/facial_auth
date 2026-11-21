@@ -73,6 +73,8 @@ def random_stream(rng):
               b"ACCEPT mode=parallel-tty timeout=1\n", b"ACCEPT mode=parallel-tty timeout=nan\n",
               b"ACCEPT\n", b"SKIP reason=x\n", b"STATE phase=detect\n", b"OK score=0.93\n", b"OK\n",
               b"FAIL reason=mismatch\n", b"FAIL\n", b"\n", b"\n\n\n", b"OK score=", b"ACCEPT mode=",
+              b"STATE phase=challenge seq=lr\n", b"STATE phase=challenge seq=rl\n", b"STATE phase=challenge\n",
+              b"STATE phase=challenge seq=" + b"A" * 300 + b"\n", b"FAIL reason=challenge\n",
               b"timeout=1e999 ", b"\x00", b"\xff\xfe", b"=" * 100, b"A" * 2500, b" " * 1500]
     out = b""
     for _ in range(rng.randint(0, 8)):
@@ -138,6 +140,9 @@ class RandomDaemon:
             elif story < 0.85:
                 conn.sendall(handshake)
                 time.sleep(rng.random() * 0.4)             # before, during or after the prompt thread starts
+                if rng.random() < 0.5:                     # the head-turn test: the prompt thread is cancelled for it
+                    conn.sendall(f"STATE phase=challenge seq={rng.choice(['lr', 'rl'])}\n".encode())
+                    time.sleep(rng.random() * 0.2)
                 conn.sendall(b"STATE phase=detect\n" * rng.randint(0, 3) + b"OK score=0.93\n")
                 time.sleep(0.05)
             else:
@@ -193,7 +198,10 @@ def test_a_random_daemon_never_crashes_the_module(sanitized, random_rig):
             if rng.random() < 0.85:
                 args.append("--refuse-prompts")              # prompts fail fast: the run always ends
             else:
-                args += ["--answer", "0:wrong-password"]
+                # One scripted answer per prompt that can appear: the module's own prompt (cancelled
+                # when the head-turn instruction is shown, which consumes its answer) and pam_unix's.
+                for _ in range(3):
+                    args += ["--answer", "0:wrong-password"]
             if rng.random() < 0.1:
                 args.append("--stubborn")
             r = subprocess.run([*args, "fa-fuzz", USER], capture_output=True, text=True, env=ENV, timeout=60)

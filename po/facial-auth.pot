@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: facial-auth 0.1.0\n"
+"Project-Id-Version: facial-auth\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-17 14:46+0000\n"
+"POT-Creation-Date: 2026-11-21 14:34+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,23 +17,35 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: pam/pam_facial_auth.c:441
+#: pam/pam_facial_auth.c:141
+msgid ""
+"Slowly turn your head to your right, then to your left, then look at the "
+"screen."
+msgstr ""
+
+#: pam/pam_facial_auth.c:142
+msgid ""
+"Slowly turn your head to your left, then to your right, then look at the "
+"screen."
+msgstr ""
+
+#: pam/pam_facial_auth.c:504
 msgid "Password: "
 msgstr ""
 
-#: pam/pam_facial_auth.c:566
+#: pam/pam_facial_auth.c:636
 msgid "Looking for your face..."
 msgstr ""
 
-#: pam/pam_facial_auth.c:587
+#: pam/pam_facial_auth.c:662 pam/pam_facial_auth.c:863
 msgid "Face not recognized."
 msgstr ""
 
-#: pam/pam_facial_auth.c:618
+#: pam/pam_facial_auth.c:696
 msgid "Looking for your face... (or type your password)"
 msgstr ""
 
-#: pam/pam_facial_auth.c:727
+#: pam/pam_facial_auth.c:835
 msgid "Face recognized."
 msgstr ""
 
@@ -91,352 +103,492 @@ msgstr ""
 
 #: src/facial_auth/cli.py:62
 msgid ""
+"Cannot ask polkit whether you may do this (is polkitd installed and "
+"running?)."
+msgstr ""
+
+#: src/facial_auth/cli.py:63
+msgid ""
 "The facial-authd service is not running (try: sudo systemctl start facial-"
 "authd)."
 msgstr ""
 
-#: src/facial_auth/cli.py:63
+#: src/facial_auth/cli.py:64
 msgid "No suitable camera found."
 msgstr ""
 
-#: src/facial_auth/cli.py:64
+#: src/facial_auth/cli.py:65
 msgid "The camera is in use by another application."
 msgstr ""
 
-#: src/facial_auth/cli.py:65 src/facial_auth/gui/app.py:144
+#: src/facial_auth/cli.py:66 src/facial_auth/gui/app.py:149
 msgid "Face models are missing: run 'sudo facial-auth fetch-models'."
 msgstr ""
 
-#: src/facial_auth/cli.py:66
+#: src/facial_auth/cli.py:67
 msgid "Not enough usable photos."
 msgstr ""
 
-#: src/facial_auth/cli.py:67
+#: src/facial_auth/cli.py:68
 msgid "The photos do not all show the same person."
 msgstr ""
 
-#: src/facial_auth/cli.py:68
+#: src/facial_auth/cli.py:69
 msgid "No face is linked to this account."
 msgstr ""
 
-#: src/facial_auth/cli.py:77
+#: src/facial_auth/cli.py:78
 #, python-format
 msgid "Face authentication: %s"
 msgstr ""
 
-#: src/facial_auth/cli.py:77
+#: src/facial_auth/cli.py:78
 msgid "enabled"
 msgstr ""
 
-#: src/facial_auth/cli.py:77
+#: src/facial_auth/cli.py:78
 msgid "disabled"
 msgstr ""
 
-#: src/facial_auth/cli.py:78 src/facial_auth/cli.py:299
+#: src/facial_auth/cli.py:79 src/facial_auth/cli.py:395
 #, python-format
 msgid "Camera: %s"
 msgstr ""
 
-#: src/facial_auth/cli.py:78 src/facial_auth/cli.py:299
-#: src/facial_auth/cli.py:306
+#: src/facial_auth/cli.py:79 src/facial_auth/cli.py:395
+#: src/facial_auth/cli.py:411
 msgid "none"
 msgstr ""
 
-#: src/facial_auth/cli.py:79
+#: src/facial_auth/cli.py:80
 #, python-format
 msgid "Models: %s"
 msgstr ""
 
-#: src/facial_auth/cli.py:79
+#: src/facial_auth/cli.py:80
 msgid "ok"
 msgstr ""
 
-#: src/facial_auth/cli.py:79
+#: src/facial_auth/cli.py:80
 #, python-format
 msgid "missing: %s"
 msgstr ""
 
-#: src/facial_auth/cli.py:80
+#: src/facial_auth/cli.py:81
 #, python-format
 msgid "Lid: %s"
 msgstr ""
 
-#: src/facial_auth/cli.py:80
+#: src/facial_auth/cli.py:81
 msgid "closed"
 msgstr ""
 
-#: src/facial_auth/cli.py:80
+#: src/facial_auth/cli.py:81
 msgid "open"
 msgstr ""
 
-#: src/facial_auth/cli.py:81
+#: src/facial_auth/cli.py:82
 msgid "Accounts:"
-msgstr ""
-
-#: src/facial_auth/cli.py:83
-#, python-format
-msgid "%d face(s), %s"
-msgstr ""
-
-#: src/facial_auth/cli.py:83
-msgid "on"
-msgstr ""
-
-#: src/facial_auth/cli.py:83
-msgid "off"
-msgstr ""
-
-#: src/facial_auth/cli.py:83
-msgid "no face"
 msgstr ""
 
 #: src/facial_auth/cli.py:84
 #, python-format
+msgid "%d face(s), %s"
+msgstr ""
+
+#: src/facial_auth/cli.py:84
+msgid "on"
+msgstr ""
+
+#: src/facial_auth/cli.py:84
+msgid "off"
+msgstr ""
+
+#: src/facial_auth/cli.py:84
+msgid "no face"
+msgstr ""
+
+#: src/facial_auth/cli.py:85
+#, python-format
 msgid " [locked out for %ds]"
 msgstr ""
 
-#: src/facial_auth/cli.py:91
+#: src/facial_auth/cli.py:92
 msgid " (not a capture device)"
 msgstr ""
 
-#: src/facial_auth/cli.py:91
+#: src/facial_auth/cli.py:92
 msgid " (virtual)"
 msgstr ""
 
-#: src/facial_auth/cli.py:99
+#: src/facial_auth/cli.py:100
 msgid "No face is linked to any account."
 msgstr ""
 
-#: src/facial_auth/cli.py:110
+#: src/facial_auth/cli.py:111
 #, python-format
 msgid "Using the %s camera."
 msgstr ""
 
-#: src/facial_auth/cli.py:113
+#: src/facial_auth/cli.py:114
 #, python-format
 msgid "Taking %d photos. %s..."
 msgstr ""
 
-#: src/facial_auth/cli.py:131
+#: src/facial_auth/cli.py:132
 #, python-format
 msgid "  photo %d/%d taken"
 msgstr ""
 
-#: src/facial_auth/cli.py:142
+#: src/facial_auth/cli.py:143
 #, python-format
 msgid ""
 "Linking this face to the account '%s' (administrator approval required)..."
 msgstr ""
 
-#: src/facial_auth/cli.py:145
+#: src/facial_auth/cli.py:146
 #, python-format
 msgid "Done: face '%s' (%s) is now linked to %s."
 msgstr ""
 
-#: src/facial_auth/cli.py:146
+#: src/facial_auth/cli.py:147
 msgid ""
 "You can now sign in with your face; the password always remains available."
 msgstr ""
 
-#: src/facial_auth/cli.py:154
+#: src/facial_auth/cli.py:155
 msgid "Not enough good photos were captured."
 msgstr ""
 
-#: src/facial_auth/cli.py:156 src/facial_auth/cli.py:168
+#: src/facial_auth/cli.py:157 src/facial_auth/cli.py:169
 msgid "Face"
 msgstr ""
 
-#: src/facial_auth/cli.py:173
+#: src/facial_auth/cli.py:174
 msgid "Face removed."
 msgstr ""
 
-#: src/facial_auth/cli.py:179
+#: src/facial_auth/cli.py:180
 #, python-format
 msgid "Remove every face of %s? [y/N] "
 msgstr ""
 
-#: src/facial_auth/cli.py:181
+#: src/facial_auth/cli.py:182
 #, python-format
 msgid "%d face(s) removed."
 msgstr ""
 
-#: src/facial_auth/cli.py:188
+#: src/facial_auth/cli.py:189
 msgid "Face authentication enabled for this account."
 msgstr ""
 
-#: src/facial_auth/cli.py:188
+#: src/facial_auth/cli.py:189
 msgid "Face authentication disabled for this account."
 msgstr ""
 
-#: src/facial_auth/cli.py:195 src/facial_auth/gui/app.py:267
+#: src/facial_auth/cli.py:196
+msgid ""
+"Slowly turn your head to your right, then to your left, then look at the "
+"camera."
+msgstr ""
+
+#: src/facial_auth/cli.py:197
+msgid ""
+"Slowly turn your head to your left, then to your right, then look at the "
+"camera."
+msgstr ""
+
+#: src/facial_auth/cli.py:225 src/facial_auth/gui/app.py:303
 msgid "Look at the camera..."
 msgstr ""
 
-#: src/facial_auth/cli.py:198
+#: src/facial_auth/cli.py:233
 #, python-format
 msgid "Recognised (%s camera, similarity %.2f, %.1fs)."
 msgstr ""
 
-#: src/facial_auth/cli.py:200
+#: src/facial_auth/cli.py:235
 #, python-format
 msgid "Not recognised (%s)."
 msgstr ""
 
-#: src/facial_auth/cli.py:216
+#: src/facial_auth/cli.py:237
+#, python-format
+msgid "Head-turn measurements: %s"
+msgstr ""
+
+#: src/facial_auth/cli.py:243 src/facial_auth/gui/app.py:282
+msgid ""
+"Infrared camera check: first look at the camera, with nothing in front of "
+"it..."
+msgstr ""
+
+#: src/facial_auth/cli.py:247 src/facial_auth/gui/app.py:285
+msgid ""
+"Now hold a phone close to the lens, screen on, showing a bright white page, "
+"for about 5 seconds."
+msgstr ""
+
+#: src/facial_auth/cli.py:254
+#, python-format
+msgid "✔ %s does not see the phone screen: it is a real infrared camera."
+msgstr ""
+
+#: src/facial_auth/cli.py:255
+msgid "Services that require infrared accept it from now on."
+msgstr ""
+
+#: src/facial_auth/cli.py:258
+#, python-format
+msgid ""
+"✘ %s saw the phone screen: it is not an infrared camera, a photograph shown "
+"on a phone would fool it."
+msgstr ""
+
+#: src/facial_auth/cli.py:260
+msgid ""
+"Services that require infrared will not accept it. Use another camera, or "
+"allow the colour webcam knowingly (docs/SECURITY.md)."
+msgstr ""
+
+#: src/facial_auth/cli.py:263
+msgid "Nothing seems to have been held in front of the camera."
+msgstr ""
+
+#: src/facial_auth/cli.py:264
+msgid "The camera gave too few pictures."
+msgstr ""
+
+#: src/facial_auth/cli.py:264
+msgid "The result is ambiguous."
+msgstr ""
+
+#: src/facial_auth/cli.py:265
+#, python-format
+msgid ""
+"? %s Try again, with the screen close to the lens and at full brightness."
+msgstr ""
+
+#: src/facial_auth/cli.py:281
 #, python-format
 msgid "Service %s: %s"
 msgstr ""
 
-#: src/facial_auth/cli.py:250
+#: src/facial_auth/cli.py:315
 msgid "Run this command as root: sudo facial-auth fetch-models"
 msgstr ""
 
-#: src/facial_auth/cli.py:261
+#: src/facial_auth/cli.py:326
 #, python-format
 msgid "Download failed: %s"
 msgstr ""
 
-#: src/facial_auth/cli.py:264
+#: src/facial_auth/cli.py:329
 #, python-format
 msgid "installed %s"
 msgstr ""
 
-#: src/facial_auth/cli.py:285
+#: src/facial_auth/cli.py:351
+msgid "not installed"
+msgstr ""
+
+#: src/facial_auth/cli.py:356
+#, python-format
+msgid "%s crashed the loader (signal %d)"
+msgstr ""
+
+#: src/facial_auth/cli.py:357
+#, python-format
+msgid "%s cannot be loaded"
+msgstr ""
+
+#: src/facial_auth/cli.py:375
 #, python-format
 msgid "Models (%s + %s) in %s"
 msgstr ""
 
-#: src/facial_auth/cli.py:286
+#: src/facial_auth/cli.py:376
 msgid "sudo facial-auth fetch-models   (offline: --from DIR)"
 msgstr ""
 
-#: src/facial_auth/cli.py:290
+#: src/facial_auth/cli.py:380
 #, python-format
 msgid "PAM socket %s"
 msgstr ""
 
-#: src/facial_auth/cli.py:290
+#: src/facial_auth/cli.py:380
 msgid "sudo systemctl enable --now facial-authd.socket"
 msgstr ""
 
-#: src/facial_auth/cli.py:293
+#: src/facial_auth/cli.py:384
+msgid "PAM module loads"
+msgstr ""
+
+#: src/facial_auth/cli.py:384
+#, python-format
+msgid "PAM module: %s"
+msgstr ""
+
+#: src/facial_auth/cli.py:385
+msgid "sudo apt install --reinstall facial-auth"
+msgstr ""
+
+#: src/facial_auth/cli.py:386
 msgid "PAM stack integration (common-auth)"
 msgstr ""
 
-#: src/facial_auth/cli.py:293
+#: src/facial_auth/cli.py:386
 msgid "sudo pam-auth-update --enable facial-auth"
 msgstr ""
 
-#: src/facial_auth/cli.py:294
+#: src/facial_auth/cli.py:388
+msgid "The damaged module is in the authentication stack"
+msgstr ""
+
+#: src/facial_auth/cli.py:389
+msgid ""
+"sudo pam-auth-update --package --remove facial-auth   (password login is "
+"unaffected)"
+msgstr ""
+
+#: src/facial_auth/cli.py:390
 msgid "polkit policy installed"
 msgstr ""
 
-#: src/facial_auth/cli.py:298
+#: src/facial_auth/cli.py:394
 #, python-format
 msgid "Daemon reachable (up %ds)"
 msgstr ""
 
-#: src/facial_auth/cli.py:300
+#: src/facial_auth/cli.py:396
 msgid ""
 "Plug a camera, or check that the 'facial-auth' user is in the 'video' group"
 msgstr ""
 
-#: src/facial_auth/cli.py:302
+#: src/facial_auth/cli.py:398
 msgid ""
-"Only a colour webcam: a photo can fool it, so sudo/su/polkit stay on the "
-"password."
+"Only a colour webcam: a photograph shown on a phone fools it, so by default "
+"no service uses the face."
 msgstr ""
 
-#: src/facial_auth/cli.py:303
+#: src/facial_auth/cli.py:400
 msgid "An infrared camera is recommended (see docs/SECURITY.md)"
 msgstr ""
 
-#: src/facial_auth/cli.py:304
+#: src/facial_auth/cli.py:404
+msgid ""
+"This \"infrared\" camera sees a phone screen: a photograph on a phone would "
+"fool it"
+msgstr ""
+
+#: src/facial_auth/cli.py:405
+msgid "Use another camera, or set camera.require_ir_check = false knowingly"
+msgstr ""
+
+#: src/facial_auth/cli.py:407
+msgid "Infrared camera verified"
+msgstr ""
+
+#: src/facial_auth/cli.py:408
+msgid ""
+"facial-auth check-camera   (until then, no service that needs infrared uses "
+"the face)"
+msgstr ""
+
+#: src/facial_auth/cli.py:409
 msgid "Daemon sees the models"
 msgstr ""
 
-#: src/facial_auth/cli.py:306
+#: src/facial_auth/cli.py:411
 #, python-format
 msgid "Linked accounts: %s"
 msgstr ""
 
-#: src/facial_auth/cli.py:307
+#: src/facial_auth/cli.py:412
 msgid "facial-auth add --user NAME   (or open the 'Face Login' settings app)"
 msgstr ""
 
-#: src/facial_auth/cli.py:309
+#: src/facial_auth/cli.py:414
 msgid "Daemon reachable"
 msgstr ""
 
-#: src/facial_auth/cli.py:314
+#: src/facial_auth/cli.py:419
 msgid "Face authentication for Ubuntu"
 msgstr ""
 
-#: src/facial_auth/cli.py:321
+#: src/facial_auth/cli.py:426
 msgid "account (default: you)"
 msgstr ""
 
-#: src/facial_auth/cli.py:325
+#: src/facial_auth/cli.py:430
 msgid "show the state of the service"
 msgstr ""
 
-#: src/facial_auth/cli.py:326
+#: src/facial_auth/cli.py:431
 msgid "list detected cameras"
 msgstr ""
 
-#: src/facial_auth/cli.py:327
+#: src/facial_auth/cli.py:432
 msgid "list linked faces"
 msgstr ""
 
-#: src/facial_auth/cli.py:328
+#: src/facial_auth/cli.py:433
 msgid "take photos with the camera and link the face to an account"
 msgstr ""
 
-#: src/facial_auth/cli.py:332
+#: src/facial_auth/cli.py:437
 msgid "link a face from photos (e.g. taken with the Camera app)"
 msgstr ""
 
-#: src/facial_auth/cli.py:336
+#: src/facial_auth/cli.py:441
 msgid "remove one face"
 msgstr ""
 
-#: src/facial_auth/cli.py:338
+#: src/facial_auth/cli.py:443
 msgid "remove every face of an account"
 msgstr ""
 
-#: src/facial_auth/cli.py:340
+#: src/facial_auth/cli.py:445
 msgid "enable face authentication for an account"
 msgstr ""
 
-#: src/facial_auth/cli.py:341
+#: src/facial_auth/cli.py:446
 msgid "disable face authentication for an account"
 msgstr ""
 
-#: src/facial_auth/cli.py:342
+#: src/facial_auth/cli.py:447
+msgid "check that the infrared camera does not see a phone screen"
+msgstr ""
+
+#: src/facial_auth/cli.py:448
 msgid "check that the camera recognises you"
 msgstr ""
 
-#: src/facial_auth/cli.py:344
+#: src/facial_auth/cli.py:451
+msgid "also print the head-turn measurements (to tune liveness.challenge_turn)"
+msgstr ""
+
+#: src/facial_auth/cli.py:452
 msgid "show or set where the face may be used (sudo, gdm-password...)"
 msgstr ""
 
-#: src/facial_auth/cli.py:347
+#: src/facial_auth/cli.py:455
 msgid "show or change a setting (e.g. recognition.threshold 0.5)"
 msgstr ""
 
-#: src/facial_auth/cli.py:350
+#: src/facial_auth/cli.py:458
 msgid "download the face models (root)"
 msgstr ""
 
-#: src/facial_auth/cli.py:351
+#: src/facial_auth/cli.py:459
 msgid "install from a directory (offline)"
 msgstr ""
 
-#: src/facial_auth/cli.py:353
+#: src/facial_auth/cli.py:461
 msgid "diagnose the installation"
 msgstr ""
 
-#: src/facial_auth/cli.py:365
+#: src/facial_auth/cli.py:473
 #, python-format
 msgid "Error: %s"
 msgstr ""
@@ -481,355 +633,366 @@ msgstr ""
 msgid "Installing software, changing system settings..."
 msgstr ""
 
-#: src/facial_auth/gui/app.py:29
-msgid "Face allowed"
-msgstr ""
-
-#: src/facial_auth/gui/app.py:29
-msgid "Infrared camera only"
-msgstr ""
-
+#. Short labels: a closed drop-down ellipsizes its value (the group's description says why "any" is less safe).
 #: src/facial_auth/gui/app.py:30
+msgid "Any camera (less safe)"
+msgstr ""
+
+#: src/facial_auth/gui/app.py:31
+msgid "Verified infrared only"
+msgstr ""
+
+#: src/facial_auth/gui/app.py:31
 msgid "Password only"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:31
+#: src/facial_auth/gui/app.py:32
 msgid "Standard"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:31
+#: src/facial_auth/gui/app.py:32
 msgid "Strict (fewer false accepts, more retries)"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:41 src/facial_auth/gui/app.py:63
+#: src/facial_auth/gui/app.py:42 src/facial_auth/gui/app.py:64
 msgid "Face Login"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:57
+#: src/facial_auth/gui/app.py:58
 msgid "Refresh"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:66 src/facial_auth/gui/app.py:71
-#: src/facial_auth/gui/app.py:150 src/facial_auth/gui/enroll.py:78
+#: src/facial_auth/gui/app.py:67 src/facial_auth/gui/app.py:76
+#: src/facial_auth/gui/app.py:155 src/facial_auth/gui/enroll.py:79
 msgid "Camera"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:66
+#: src/facial_auth/gui/app.py:67
 msgid "Looking for a camera..."
 msgstr ""
 
-#: src/facial_auth/gui/app.py:68
+#: src/facial_auth/gui/app.py:69
+msgid "Verify"
+msgstr ""
+
+#: src/facial_auth/gui/app.py:70
+msgid "Show the camera a phone screen: an infrared camera does not see it"
+msgstr ""
+
+#: src/facial_auth/gui/app.py:73
 msgid "Sign in with my face"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:69
+#: src/facial_auth/gui/app.py:74
 msgid "The password always remains available"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:77
+#: src/facial_auth/gui/app.py:82
 msgid "Accounts"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:78
+#: src/facial_auth/gui/app.py:83
 msgid "Linking a face to an account requires an administrator's password."
 msgstr ""
 
-#: src/facial_auth/gui/app.py:82
+#: src/facial_auth/gui/app.py:87
 msgid "Where can the face be used?"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:83
+#: src/facial_auth/gui/app.py:88
 msgid ""
-"A colour webcam can be fooled by a photograph: only an infrared camera is "
-"trusted for administrator actions."
+"A colour webcam is fooled by a photograph shown on a phone: by default every "
+"service needs a verified infrared camera. Allowing any camera is your call."
 msgstr ""
 
-#: src/facial_auth/gui/app.py:93
+#: src/facial_auth/gui/app.py:98
 msgid "Security level"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:94
+#: src/facial_auth/gui/app.py:99
 msgid "Recognition strictness"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:126
+#: src/facial_auth/gui/app.py:131
 msgid "OK"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:146
+#: src/facial_auth/gui/app.py:151
 msgid "No usable camera was found."
 msgstr ""
 
-#: src/facial_auth/gui/app.py:151
+#: src/facial_auth/gui/app.py:158
+msgid "Colour webcam: a photograph shown on a phone fools it"
+msgstr ""
+
+#: src/facial_auth/gui/app.py:160
 msgid "Infrared camera: robust against photographs"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:152
-msgid "Colour webcam: convenient, but a photograph may fool it"
+#: src/facial_auth/gui/app.py:162
+msgid ""
+"This \"infrared\" camera sees a phone screen: a photograph would fool it"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:155
+#: src/facial_auth/gui/app.py:164
+msgid "Infrared camera not verified yet: face login waits for the check"
+msgstr ""
+
+#: src/facial_auth/gui/app.py:169
 msgid "No camera"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:156
+#: src/facial_auth/gui/app.py:170
 msgid "Plug in a webcam or check the 'video' group"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:193
+#: src/facial_auth/gui/app.py:207
 msgid " (you)"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:197 src/facial_auth/gui/enroll.py:46
+#: src/facial_auth/gui/app.py:211 src/facial_auth/gui/enroll.py:46
 msgid "Add a face"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:207
+#: src/facial_auth/gui/app.py:221
 msgid "no face linked"
-msgstr ""
-
-#: src/facial_auth/gui/app.py:208
-#, python-format
-msgid " — locked for %d s"
-msgstr ""
-
-#: src/facial_auth/gui/app.py:209
-#, python-format
-msgid "%d face(s)"
-msgstr ""
-
-#: src/facial_auth/gui/app.py:209
-msgid " (disabled)"
-msgstr ""
-
-#: src/facial_auth/gui/app.py:221
-msgid "Infrared"
-msgstr ""
-
-#: src/facial_auth/gui/app.py:221
-msgid "Colour camera"
 msgstr ""
 
 #: src/facial_auth/gui/app.py:222
 #, python-format
+msgid " — locked for %d s"
+msgstr ""
+
+#: src/facial_auth/gui/app.py:223
+#, python-format
+msgid "%d face(s)"
+msgstr ""
+
+#: src/facial_auth/gui/app.py:223
+msgid " (disabled)"
+msgstr ""
+
+#: src/facial_auth/gui/app.py:235
+msgid "Infrared"
+msgstr ""
+
+#: src/facial_auth/gui/app.py:235
+msgid "Colour camera"
+msgstr ""
+
+#: src/facial_auth/gui/app.py:236
+#, python-format
 msgid "%d photos"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:224
+#: src/facial_auth/gui/app.py:238
 msgid "Remove this face"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:230
+#: src/facial_auth/gui/app.py:244
 msgid "Use the face for this account"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:234
+#: src/facial_auth/gui/app.py:248
 msgid "Test"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:251
+#: src/facial_auth/gui/app.py:265
 msgid "Remove this face?"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:252
+#: src/facial_auth/gui/app.py:266
 msgid "You will no longer be able to sign in with it."
 msgstr ""
 
-#: src/facial_auth/gui/app.py:253
+#: src/facial_auth/gui/app.py:267
 msgid "Cancel"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:254 src/facial_auth/gui/enroll.py:258
+#: src/facial_auth/gui/app.py:268 src/facial_auth/gui/enroll.py:290
 msgid "Remove"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:260
+#: src/facial_auth/gui/app.py:274
 msgid "Face removed"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:274
+#: src/facial_auth/gui/app.py:295
+msgid "The camera does not see the phone screen: it is infrared."
+msgstr ""
+
+#: src/facial_auth/gui/app.py:296
+msgid "The camera saw the phone screen: it is not infrared."
+msgstr ""
+
+#: src/facial_auth/gui/app.py:297
+msgid "Inconclusive: hold the screen close to the lens and try again."
+msgstr ""
+
+#: src/facial_auth/gui/app.py:313
 #, python-format
 msgid "Recognised (similarity %.2f)"
 msgstr ""
 
-#: src/facial_auth/gui/app.py:275
+#: src/facial_auth/gui/app.py:314
 #, python-format
 msgid "Not recognised (%s)"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:59
+#: src/facial_auth/gui/enroll.py:60
 msgid "Continue"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:79
+#: src/facial_auth/gui/enroll.py:80
 msgid "Import photos"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:106 src/facial_auth/gui/enroll.py:137
+#: src/facial_auth/gui/enroll.py:107 src/facial_auth/gui/enroll.py:138
 msgid "Starting the camera..."
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:111
+#: src/facial_auth/gui/enroll.py:112
 msgid "Take photo"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:113
+#: src/facial_auth/gui/enroll.py:114
 msgid "Guided capture"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:118
+#: src/facial_auth/gui/enroll.py:119
 msgid "No camera available"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:125
+#: src/facial_auth/gui/enroll.py:126
 msgid "Use photos from the Camera app"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:126
+#: src/facial_auth/gui/enroll.py:127
 #, python-format
 msgid ""
 "Take at least %d photos of your face with the Camera app (front view, "
 "slightly left, slightly right), then choose them here."
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:128
+#: src/facial_auth/gui/enroll.py:129
 msgid "Choose photos..."
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:145
+#: src/facial_auth/gui/enroll.py:146
 msgid "The camera could not be started"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:192
+#: src/facial_auth/gui/enroll.py:163
+msgid "Verify the infrared camera"
+msgstr ""
+
+#: src/facial_auth/gui/enroll.py:164
+msgid ""
+"This camera looks like an infrared one, but only an infrared camera ignores "
+"a phone screen. Until it is verified, services that need infrared will not "
+"use your face. You will need a phone showing a bright white page, held close "
+"to the lens for a few seconds."
+msgstr ""
+
+#: src/facial_auth/gui/enroll.py:168
+msgid "Later"
+msgstr ""
+
+#: src/facial_auth/gui/enroll.py:169
+msgid "Verify now"
+msgstr ""
+
+#: src/facial_auth/gui/enroll.py:224
 msgid "Position your face in the frame"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:192
+#: src/facial_auth/gui/enroll.py:224
 msgid "Ready"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:241
+#: src/facial_auth/gui/enroll.py:273
 msgid "Remove the current photos before using another source"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:263
+#: src/facial_auth/gui/enroll.py:295
 #, python-format
 msgid "%d photo(s): at least %d are needed"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:264
+#: src/facial_auth/gui/enroll.py:296
 #, python-format
 msgid "%d photo(s): ready"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:275
+#: src/facial_auth/gui/enroll.py:307
 msgid "Choose photos of your face"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:276
+#: src/facial_auth/gui/enroll.py:308
 msgid "Images"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:302
+#: src/facial_auth/gui/enroll.py:334
 #, python-format
 msgid "%s: cannot read this image"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:311
+#: src/facial_auth/gui/enroll.py:343
 msgid "no usable face"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:324
+#: src/facial_auth/gui/enroll.py:356
 msgid "Link this face to an account"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:325
+#: src/facial_auth/gui/enroll.py:357
 msgid ""
 "Only an administrator can link a face to an account. You will be asked for "
 "an administrator's password."
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:327
+#: src/facial_auth/gui/enroll.py:359
 msgid "Account"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:328
+#: src/facial_auth/gui/enroll.py:360
 msgid "Name of this face"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:328 src/facial_auth/gui/enroll.py:369
+#: src/facial_auth/gui/enroll.py:360 src/facial_auth/gui/enroll.py:401
 msgid "My face"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:329
+#: src/facial_auth/gui/enroll.py:361
 msgid "Photos"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:335
+#: src/facial_auth/gui/enroll.py:367
 msgid "Link this face to the account"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:360
+#: src/facial_auth/gui/enroll.py:392
 msgid "infrared camera"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:360
+#: src/facial_auth/gui/enroll.py:392
 msgid "colour camera"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:361
+#: src/facial_auth/gui/enroll.py:393
 #, python-format
 msgid "%d photos from the %s"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:378
+#: src/facial_auth/gui/enroll.py:410
 msgid "Authentication required"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:378
+#: src/facial_auth/gui/enroll.py:410
 msgid "Could not link the face"
 msgstr ""
 
-#: src/facial_auth/gui/enroll.py:381
+#: src/facial_auth/gui/enroll.py:413
 #, python-format
 msgid "The face is now linked to %s"
-msgstr ""
-
-#: src/facial_auth/cli.py
-msgid "Cannot ask polkit whether you may do this (is polkitd installed and running?)."
-msgstr ""
-
-#: src/facial_auth/cli.py
-msgid "PAM module loads"
-msgstr ""
-
-#: src/facial_auth/cli.py
-#, python-format
-msgid "PAM module: %s"
-msgstr ""
-
-#: src/facial_auth/cli.py
-msgid "sudo apt install --reinstall facial-auth"
-msgstr ""
-
-#: src/facial_auth/cli.py
-msgid "The damaged module is in the authentication stack"
-msgstr ""
-
-#: src/facial_auth/cli.py
-msgid "sudo pam-auth-update --package --remove facial-auth   (password login is unaffected)"
-msgstr ""
-
-#: src/facial_auth/cli.py
-msgid "not installed"
-msgstr ""
-
-#: src/facial_auth/cli.py
-#, python-format
-msgid "%s crashed the loader (signal %d)"
-msgstr ""
-
-#: src/facial_auth/cli.py
-#, python-format
-msgid "%s cannot be loaded"
 msgstr ""

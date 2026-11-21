@@ -49,6 +49,10 @@ def env(tmp_path_factory):
     os.environ["DBUS_SESSION_BUS_ADDRESS"] = address
 
     paths = Paths(tmp / "root")
+    # These tests are about the API, not about liveness: the synthetic frames cannot turn their head.
+    # The head-turn test has its own end-to-end tests (test_challenge*.py).
+    paths.config.parent.mkdir(parents=True, exist_ok=True)
+    paths.config.write_text("[liveness]\nmode = basic\n")
     e = type("Env", (), {})()
     e.scene = {"identity": 1}
     e.polkit = Polkit()

@@ -51,6 +51,11 @@ class CameraInfo:
     usable: bool = False               # can capture video frames
     virtual: bool = False              # loopback / test pattern generator
 
+    def key(self) -> str:
+        """Stable identity of this video node (the /dev/videoN number is not): the colour and
+        infrared nodes of one laptop camera share a name and a bus, not their formats."""
+        return f"{self.name}|{self.bus}|{self.camera_class}|{','.join(sorted(self.formats))}"
+
     def public(self) -> dict:
         return {"path": self.path, "name": self.name, "driver": self.driver,
                 "class": self.camera_class, "formats": ",".join(self.formats),

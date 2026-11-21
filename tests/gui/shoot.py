@@ -46,6 +46,9 @@ tmp = Path(tempfile.mkdtemp(prefix="fa-gui-"))
 names = {1000: "alice", 1001: "bob"}
 real = {1000: "Alice Martin", 1001: "Bob Durand"}
 paths = Paths(tmp)
+# The synthetic frames cannot turn their head: this walk-through is about the interface.
+paths.config.parent.mkdir(parents=True, exist_ok=True)
+paths.config.write_text("[liveness]\nmode = basic\n[services]\nlightdm = any\n")
 cam = v4l2.CameraInfo("/dev/video0", "Integrated Camera", "uvcvideo", "", ["MJPG"], "rgb", True)
 core = Core(paths=paths, store=FaceStore(paths, name_of=lambda u: names.get(u, "")),
             engine_loader=lambda: FakeEngine(),

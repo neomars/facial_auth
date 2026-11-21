@@ -147,7 +147,7 @@ class PamServer:
             log.info("skip user=%s service=%s reason=%s", req.user, req.service, decision.reason)
             self._send(conn, protocol.skip(decision.reason))
             return
-        if not self._send(conn, protocol.accept(decision.mode, decision.timeout)):
+        if not self._send(conn, protocol.accept(decision.mode, decision.accept_timeout)):
             return
 
         # In parallel modes the prompt appears at once; do not even power the
@@ -160,7 +160,7 @@ class PamServer:
 
         res = self.core.verify(
             decision, cancelled=lambda: peer_gone(conn),
-            progress=lambda phase: self._send(conn, protocol.state(phase)))
+            progress=lambda phase, **fields: self._send(conn, protocol.state(phase, **fields)))
         if res.reason == "cancelled":
             return
         self._send(conn, protocol.ok(res.score) if res.ok else protocol.fail(res.reason or "error"))
