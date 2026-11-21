@@ -48,6 +48,10 @@ def test_a_real_head_turning_as_asked_unlocks_and_the_user_was_told_what_to_do(c
     told = ("challenge", {"seq": "lr", "timeout": "5.0"})
     assert told in events, "the PAM module must be told to show the instruction, and for how long"
     assert events.index(told) > events.index(("face", {}))
+    first, second = ("turned", {"seq": "lr", "step": "1"}), ("turned", {"seq": "lr", "step": "2"})
+    assert events.index(told) < events.index(first) < events.index(second), \
+        "each turn that was seen is announced once, in order, so that the person can pace themselves"
+    assert res.challenge["hint"] == ""
 
 
 def test_a_photograph_never_unlocks_whatever_the_hand_does(cfg):
@@ -61,9 +65,17 @@ def test_a_still_photograph_fails_with_the_challenge_reason_not_as_a_wrong_face(
     assert not res.ok and res.reason == "challenge"
 
 
+def test_a_slight_turn_fails_and_the_hint_says_to_turn_further(cfg):
+    res, events = verify(cfg, Scene("head", nose_mm=20.0, seed=15), head_turns(+1, amplitude_deg=6.0), "lr")
+    assert not res.ok and res.reason == "challenge"
+    assert res.challenge["hint"] == "too-little" and res.challenge["steps"] == 0
+    assert not [e for e in events if e[0] == "turned"], "nothing to confirm"
+
+
 def test_the_wrong_order_does_not_unlock(cfg):
     res, _events = verify(cfg, Scene("head", seed=4), head_turns(-1), "lr")
     assert not res.ok and res.reason == "challenge"
+    assert res.challenge["hint"] == "wrong-way", "a movement was seen, towards the other side"
 
 
 def test_somebody_else_taking_over_during_the_turn_is_a_spoof(cfg):

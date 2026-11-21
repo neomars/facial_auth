@@ -405,8 +405,12 @@ class DBusService:
         self.stop_preview(sender)
 
         def progress(phase: str, **fields: str) -> None:
-            # "challenge" + seq: the head-turn test asks the person to move (see challenge.py)
-            GLib.idle_add(self.emit, "RecognitionProgress", GLib.Variant("(ss)", (phase, str(fields.get("seq", "")))))
+            # "challenge" + seq: the head-turn test asks the person to move (see challenge.py);
+            # "turned" + "seq:step": a turn was seen, the person is told what comes next
+            detail = str(fields.get("seq", ""))
+            if phase == "turned":
+                detail += ":" + str(fields.get("step", ""))
+            GLib.idle_add(self.emit, "RecognitionProgress", GLib.Variant("(ss)", (phase, detail)))
 
         return (vardict(self.core.test_user(username, camera_class or None, lambda: False, progress)),)
 

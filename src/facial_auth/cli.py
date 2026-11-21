@@ -193,8 +193,40 @@ def cmd_toggle(enabled: bool):
 
 def challenge_text(seq: str) -> str:
     if seq == "rl":
-        return _("Slowly turn your head to your right, then to your left, then look at the camera.")
-    return _("Slowly turn your head to your left, then to your right, then look at the camera.")
+        return _("Turn your head clearly to your right, then to your left, then look at the camera.")
+    return _("Turn your head clearly to your left, then to your right, then look at the camera.")
+
+
+def turned_text(detail: str) -> str:
+    """What to do next, once the daemon has seen a turn (`detail` is "seq:step")."""
+    seq, _sep, step = detail.partition(":")
+    if step == "1":
+        if seq == "rl":
+            return _("Good. Now turn your head clearly to your left.")
+        return _("Good. Now turn your head clearly to your right.")
+    return _("Good. Now look straight at the camera.")
+
+
+def head_turn_advice(measures: str) -> str:
+    """The reason a head turn failed, worded for the person who ran `facial-auth test --liveness`."""
+    fields = dict(kv.split("=", 1) for kv in measures.split(", ") if "=" in kv)
+    return {
+        "too-little": _("You did not turn far enough: turn your head clearly (about 15 to 20 degrees, "
+                        "as if looking at the edge of the screen) to each side."),
+        "wrong-way": _("A movement was seen, but not towards the side that was asked first: turn your head "
+                       "to your own left or right as told (if the picture is mirrored, set "
+                       "liveness.mirror = true)."),
+        "too-fast": _("The turn was too quick to be followed: pause for half a second at each side."),
+        "second-turn": _("The first turn was seen, not the second: turn clearly to the other side too, "
+                         "without hurrying and without stopping half way."),
+        "final-match": _("Both turns were seen, but your face was not recognised again looking at the "
+                         "camera: look straight at it, in good light (a stricter recognition level "
+                         "makes this harder)."),
+        "lost-face": _("Your face left the picture during the movement."),
+        "identity-changed": _("The face seen during the movement was not yours."),
+        "no-texture": _("Not enough detail could be followed on your face: more light, or come closer."),
+        "flat": _("The face looked flat, like a picture."),
+    }.get(fields.get("hint", ""), "")
 
 
 def run_with_signals(c: Client, method: str, sig: str, args: tuple, handlers: dict, timeout_ms: int = 120000):
@@ -227,12 +259,18 @@ def cmd_test(args, c: Client) -> int:
     def progress(phase: str, detail: str) -> None:
         if phase == "challenge":
             say(challenge_text(detail))
+        elif phase == "turned":
+            say(turned_text(detail))
 
     r = run_test(c, user, "" if args.camera == "auto" else args.camera, progress)
     if r["ok"]:
         say(_("Recognised (%s camera, similarity %.2f, %.1fs).") % (r["camera_class"].upper(), r["score"], r["duration"]))
     else:
         say(_("Not recognised (%s).") % r["reason"])
+    if not r["ok"] and r.get("head_turn"):
+        advice = head_turn_advice(r["head_turn"])
+        if advice:
+            say(advice)
     if args.liveness and r.get("head_turn"):
         say(_("Head-turn measurements: %s") % r["head_turn"])
     return 0 if r["ok"] else 1

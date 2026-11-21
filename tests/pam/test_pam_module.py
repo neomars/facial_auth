@@ -24,6 +24,9 @@ from urllib.parse import quote
 
 import pytest
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from test_sudo_pty import Pty  # noqa: E402
+
 pytestmark = pytest.mark.skipif(os.geteuid() != 0, reason="needs root (writes /etc/pam.d, creates users)")
 
 HERE = Path(__file__).resolve().parent
@@ -193,9 +196,52 @@ def test_parallel_face_wins_while_prompt_is_pending(env, mode):
         assert r.count("CONV-CANCELLED") == 0, "graphical frontends: the prompt is abandoned, never cancelled"
 
 
-LR = "Slowly turn your head to your left, then to your right, then look at the screen."
-RL = "Slowly turn your head to your right, then to your left, then look at the screen."
+LR = "Turn your head clearly to your left, then to your right, then look at the screen."
+RL = "Turn your head clearly to your right, then to your left, then look at the screen."
 CHALLENGE = [0.15, "STATE phase=challenge seq=lr"]
+TURNED_1 = [0.35, "STATE phase=turned seq=lr step=1"]
+TURNED_2 = [0.55, "STATE phase=turned seq=lr step=2"]
+NEXT_RIGHT = "Good. Now turn your head clearly to your right."
+NEXT_LEFT = "Good. Now turn your head clearly to your left."
+LOOK = "Good. Now look straight at the screen."
+NOT_COMPLETED = "Head-turn test not completed."
+FAILED = "Head-turn test failed."
+
+
+class PtyResult(Result):
+    """A run of pamtest on a pseudo-terminal: what the module writes straight to the terminal (the
+    head-turn instructions, below a pending password prompt) is in `text`, the harness's own events
+    are parsed as usual."""
+
+    def __init__(self, rc, text, log):
+        self.rc, self.text, self.log, self.proc = rc, text, log, None
+        self.events = []
+        for line in text.replace("\r", "").splitlines():
+            m = re.match(r"^(\S+) (-?\d+) ?(.*)$", line)
+            if m:
+                self.events.append((m.group(1), int(m.group(2)), m.group(3)))
+
+    def said(self):
+        """Everything shown to the person, in order: harness INFO lines and direct terminal writes."""
+        out = []
+        for ln in self.text.replace("\r", "").splitlines():
+            m = re.match(r"^INFO -?\d+ ?(.*)$", ln)
+            if m:
+                out.append(m.group(1))
+            elif ln.strip() and not re.match(r"^(PROMPT|ANSWER|RESULT|END|CONV-CANCELLED|LATE-ANSWER) ", ln):
+                out.append(ln.strip())
+        return out
+
+
+def run_pty(env, scn, *args, service="fa-test", user=USER, timeout=25):
+    log_path = env["log"]
+    before = log_path.read_text().count("\n") if log_path.exists() else 0
+    cmd = [str(env["pamtest"]), "--ruser", json.dumps(scn, separators=(",", ":")), *args, service, user]
+    p = Pty(cmd, env={"PATH": os.environ["PATH"], "LANGUAGE": "C", "LC_ALL": "C", "TERM": "dumb", "HOME": "/tmp"})
+    rc = p.wait(timeout)
+    time.sleep(0.45)
+    lines = log_path.read_text().splitlines()[before:] if log_path.exists() else []
+    return PtyResult(rc, p.buf, [json.loads(line) for line in lines])
 
 
 # ------------------------------------------------------------ the head-turn test
@@ -213,41 +259,96 @@ def test_the_other_order_is_worded_the_other_way_round(env):
     assert r.rc == 0 and RL in r.infos() and LR not in r.infos()
 
 
-def test_sequential_a_failed_head_turn_falls_back_to_the_password(env):
-    r = run(env, {"accept": {"mode": "sequential", "timeout": 6}, "states": [CHALLENGE],
-                  "result": {"kind": "FAIL", "delay": 0.5, "reason": "challenge"}}, "--answer", f"0:{PASSWORD}")
-    assert r.rc == 0 and r.count("PROMPT") == 1
-    assert r.infos()[-2:] == [LR, "Face not recognized."]
-
-
-def test_parallel_tty_the_pending_prompt_is_cancelled_to_give_the_instruction(env):
-    """Terminal frontends: same gesture as for a recognised face (cancel, restore the terminal),
-    then the conversation is free for the instruction."""
-    r = run(env, {"accept": {"mode": "parallel-tty", "timeout": 6}, "states": [CHALLENGE],
-                  "result": {"kind": "OK", "delay": 0.7}}, "--post-sleep", "200")
+def test_sequential_each_turn_that_was_seen_is_confirmed_and_the_next_step_named(env):
+    r = run(env, {"accept": {"mode": "sequential", "timeout": 6}, "states": [CHALLENGE, TURNED_1, TURNED_2],
+                  "result": {"kind": "OK", "delay": 0.8}})
     assert r.rc == 0
-    assert r.count("PROMPT") == 1 and r.count("CONV-CANCELLED") == 1
-    assert r.at("CONV-CANCELLED") < r.at("RESULT")
-    assert LR in r.infos() and "Face recognized." in r.infos()
-    assert r.infos().index(LR) < r.infos().index("Face recognized.")
+    shown = r.infos()
+    assert shown.index(LR) < shown.index(NEXT_RIGHT) < shown.index(LOOK), shown
 
 
-def test_parallel_tty_a_failed_head_turn_leaves_a_fresh_password_prompt(env):
-    r = run(env, {"accept": {"mode": "parallel-tty", "timeout": 6}, "states": [CHALLENGE],
-                  "result": {"kind": "FAIL", "delay": 0.5, "reason": "spoof"}},
-            "--answer", "30000:never-typed", "--answer", f"0:{PASSWORD}")
-    assert r.rc == 0, "pam_unix must prompt again after the face failed (the first prompt was cancelled)"
-    assert r.count("CONV-CANCELLED") == 1 and r.count("PROMPT") == 2
-    assert r.infos()[-2:] == [LR, "Face not recognized."]
+def test_sequential_the_confirmation_names_the_side_that_comes_next(env):
+    r = run(env, {"accept": {"mode": "sequential", "timeout": 6},
+                  "states": [[0.1, "STATE phase=challenge seq=rl"], [0.3, "STATE phase=turned seq=rl step=1"]],
+                  "result": {"kind": "OK", "delay": 0.6}})
+    assert NEXT_LEFT in r.infos() and NEXT_RIGHT not in r.infos()
+
+
+def test_sequential_a_confirmation_that_nobody_asked_for_is_ignored(env):
+    """A daemon cannot make the module say 'Good' for a head turn it never asked for, nor repeat it."""
+    r = run(env, {"accept": {"mode": "sequential", "timeout": 6},
+                  "states": [[0.1, "STATE phase=turned seq=lr step=1"], CHALLENGE, TURNED_1, [0.45, "STATE phase=turned seq=lr step=1"],
+                             [0.5, "STATE phase=turned seq=lr step=7"], [0.52, "STATE phase=turned seq=lr step=-1"]],
+                  "result": {"kind": "OK", "delay": 0.8}})
+    assert r.rc == 0
+    assert r.infos().count(NEXT_RIGHT) == 1 and LOOK not in r.infos()
+
+
+@pytest.mark.parametrize("reason, words", [("challenge", NOT_COMPLETED), ("spoof", FAILED),
+                                           ("mismatch", "Face not recognized."), ("timeout", "Face not recognized.")])
+def test_sequential_a_failed_head_turn_says_what_failed_then_asks_for_the_password(env, reason, words):
+    r = run(env, {"accept": {"mode": "sequential", "timeout": 6}, "states": [CHALLENGE],
+                  "result": {"kind": "FAIL", "delay": 0.5, "reason": reason}}, "--answer", f"0:{PASSWORD}")
+    expected = words if reason in ("challenge", "spoof") else "Face not recognized."
+    assert r.rc == 0 and r.count("PROMPT") == 1
+    assert r.infos()[-2:] == [LR, expected]
+
+
+def test_sequential_a_spoof_without_a_head_turn_is_not_called_a_head_turn_failure(env):
+    """`spoof` is also what a frozen camera feed gives (liveness.mode = basic)."""
+    r = run(env, {"accept": {"mode": "sequential", "timeout": 6},
+                  "result": {"kind": "FAIL", "delay": 0.3, "reason": "spoof"}}, "--answer", f"0:{PASSWORD}")
+    assert r.rc == 0 and "Face not recognized." in r.infos() and FAILED not in r.infos()
+
+
+# ------------------------------------- sudo / su: the password prompt stays open all along
+def test_parallel_tty_the_instruction_goes_below_the_prompt_which_stays_open(env):
+    r = run_pty(env, {"accept": {"mode": "parallel-tty", "timeout": 6}, "states": [CHALLENGE, TURNED_1, TURNED_2],
+                      "result": {"kind": "OK", "delay": 0.9}}, "--post-sleep", "200")
+    assert r.rc == 0, r.text
+    shown = r.said()
+    assert LR in shown and NEXT_RIGHT in shown and LOOK in shown and "Face recognized." in shown, shown
+    assert shown.index(LR) < shown.index(NEXT_RIGHT) < shown.index(LOOK) < shown.index("Face recognized.")
+    assert r.count("PROMPT") == 1, "one prompt, never replaced: the person can type their password at any time"
+    assert r.count("CONV-CANCELLED") == 1 and r.at("CONV-CANCELLED") > 700, \
+        "the prompt is only taken away once the face has won"
+
+
+def test_parallel_tty_a_password_typed_during_the_head_turn_wins_at_once(env):
+    r = run_pty(env, {"accept": {"mode": "parallel-tty", "timeout": 20},
+                      "states": [[0.15, "STATE phase=challenge seq=lr timeout=10"]], "result": {"kind": "HANG"}},
+                "--answer", f"1200:{PASSWORD}")
+    assert r.rc == 0, r.text
+    assert LR in r.said() and r.count("PROMPT") == 1, "no second prompt: the first one never went away"
+    assert r.at("RESULT") < 3500, "typing the password ends the head turn at once"
+    assert r.log_events("closed") or r.log_events("cancelled"), "and the scan is dropped"
+
+
+@pytest.mark.parametrize("reason, words", [("challenge", NOT_COMPLETED), ("spoof", FAILED)])
+def test_parallel_tty_a_failed_head_turn_says_so_and_the_prompt_takes_the_password(env, reason, words):
+    r = run_pty(env, {"accept": {"mode": "parallel-tty", "timeout": 6}, "states": [CHALLENGE],
+                      "result": {"kind": "FAIL", "delay": 0.5, "reason": reason}}, "--answer", f"1500:{PASSWORD}")
+    assert r.rc == 0, r.text
+    shown = r.said()
+    assert shown.index(LR) < shown.index(words), shown
+    assert r.count("PROMPT") == 1 and r.count("CONV-CANCELLED") == 0, "the same prompt takes the password"
+
+
+def test_parallel_tty_a_wrong_password_after_a_failed_head_turn_is_refused(env):
+    r = run_pty(env, {"accept": {"mode": "parallel-tty", "timeout": 6}, "states": [CHALLENGE],
+                      "result": {"kind": "FAIL", "delay": 0.4, "reason": "challenge"}}, "--answer", "900:wrong")
+    assert r.rc != 0
 
 
 def test_parallel_graphical_frontends_are_never_interrupted_for_an_instruction(env):
-    """A dialog that keeps its password prompt open cannot be taken over: the instruction is not shown
-    (the daemon does not ask for a head turn in that mode; this is what happens if it does)."""
-    r = run(env, {"accept": {"mode": "parallel", "timeout": 6}, "states": [CHALLENGE],
-                  "result": {"kind": "FAIL", "delay": 0.4, "reason": "challenge"}}, "--answer", f"900:{PASSWORD}")
+    """A dialog that keeps its password prompt open cannot be taken over, nor written next to: the
+    instruction is not shown (the daemon does not ask for a head turn in that mode; this is what
+    happens if it does)."""
+    r = run(env, {"accept": {"mode": "parallel", "timeout": 6}, "states": [CHALLENGE, TURNED_1],
+                  "result": {"kind": "FAIL", "delay": 0.7, "reason": "challenge"}}, "--answer", f"1100:{PASSWORD}")
     assert r.rc == 0
-    assert r.count("CONV-CANCELLED") == 0 and LR not in r.infos()
+    assert r.count("CONV-CANCELLED") == 0
+    assert LR not in r.infos() and NEXT_RIGHT not in r.infos() and NOT_COMPLETED not in r.infos()
 
 
 @pytest.mark.parametrize("mode", ["sequential", "parallel-tty"])
@@ -255,13 +356,17 @@ def test_a_daemon_that_goes_silent_after_the_instruction_costs_the_announced_tim
     """The scan budget (here 30 s) covers recognition *and* head turn; once the instruction is shown
     the module waits for the head turn's own duration (1 s announced) plus its margin, not for the rest
     of the whole budget."""
-    # parallel-tty: the first prompt (the module's own) is cancelled, pam_unix asks a second time
-    answers = ["--answer", "30000:never-typed"] if mode == "parallel-tty" else []
-    r = run(env, {"accept": {"mode": mode, "timeout": 30}, "states": [[0.1, "STATE phase=challenge seq=lr timeout=1"]],
-                  "result": {"kind": "HANG"}}, *answers, "--answer", f"0:{PASSWORD}")
-    assert r.rc == 0, "the password must still be asked, and accepted"
-    assert LR in r.infos() and "Face not recognized." in r.infos()
-    assert 3000 <= r.at("RESULT") < 8000, f"gave up after {r.at('RESULT')} ms (expected about 1 s + 3 s of margin)"
+    scn = {"accept": {"mode": mode, "timeout": 30}, "states": [[0.1, "STATE phase=challenge seq=lr timeout=1"]],
+           "result": {"kind": "HANG"}}
+    if mode == "sequential":
+        r = run(env, scn, "--answer", f"0:{PASSWORD}")
+        assert r.rc == 0 and r.infos()[-2:] == [LR, NOT_COMPLETED]
+        assert 3000 <= r.at("RESULT") < 8000, f"gave up after {r.at('RESULT')} ms (expected about 1 s + 3 s of margin)"
+    else:
+        r = run_pty(env, scn, "--answer", f"6500:{PASSWORD}")
+        assert r.rc == 0, r.text
+        assert r.said().index(NOT_COMPLETED) > r.said().index(LR)
+        assert r.at("RESULT") >= 6000, "the pending prompt waited for the password: it was never withdrawn"
 
 
 def test_parallel_password_typed_first_beats_a_slow_face(env):

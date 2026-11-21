@@ -56,10 +56,13 @@ SCHEMA: dict[tuple[str, str], tuple[str, Any, Any, Any]] = {
 
     # off | basic (frozen feed) | challenge (basic + "turn your head": proves depth, see challenge.py)
     ("liveness", "mode"): ("choice", "challenge", None, ("off", "basic", "challenge")),
-    ("liveness", "challenge_timeout"): ("float", 8.0, 3.0, 20.0),
+    # seconds for the whole head turn, counted from the moment the instruction is sent: it includes
+    # the time to read it and the final "look at the screen" check
+    ("liveness", "challenge_timeout"): ("float", 12.0, 3.0, 20.0),
     # |parallax| of the nose (fraction of the distance between the eyes) that counts as a turn.
-    # A flat picture stays under 0.02 whatever its inclination; a real head reaches ~0.04 at 15 degrees.
-    ("liveness", "challenge_turn"): ("float", 0.025, 0.008, 0.2),
+    # A hand-held flat picture gives ~0.005 (never twice in a row above 0.02 in 240 simulated attempts);
+    # a real head turned by 10 degrees gives ~0.02, by 15 degrees ~0.03.
+    ("liveness", "challenge_turn"): ("float", 0.020, 0.008, 0.2),
     ("liveness", "challenge_hold"): ("int", 3, 1, 10),
     ("liveness", "mirror"): ("bool", False, None, None),
 

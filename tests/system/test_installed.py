@@ -120,44 +120,49 @@ def test_real_su_password_typed_while_scanning(mock, su_target):
 
 
 # --- the head-turn test with the real sudo / su ----------------------------------------------
-LR = "Slowly turn your head to your left, then to your right, then look at the screen."
+LR = "Turn your head clearly to your left, then to your right, then look at the screen."
 CHALLENGE = [0.3, "STATE phase=challenge seq=lr"]
+TURNED = [[0.6, "STATE phase=turned seq=lr step=1"], [0.9, "STATE phase=turned seq=lr step=2"]]
+NEXT_RIGHT = "Good. Now turn your head clearly to your right."
+LOOK = "Good. Now look straight at the screen."
+NOT_COMPLETED = "Head-turn test not completed."
 
 
 def test_real_sudo_shows_the_head_turn_instruction_then_the_face_wins(mock):
-    """The pending password prompt is cancelled for the instruction (as for a recognised face)
-    and the terminal is left usable."""
+    """The instruction is written below the password prompt, which stays open; each turn that was seen
+    is confirmed; the terminal is left usable."""
     MARKER.parent.mkdir(parents=True, exist_ok=True)
     MARKER.touch()
-    scenario(mock, {"accept": {"mode": "parallel-tty", "timeout": 8}, "states": [CHALLENGE],
-                    "result": {"kind": "OK", "delay": 1.2}})
+    scenario(mock, {"accept": {"mode": "parallel-tty", "timeout": 8}, "states": [CHALLENGE, *TURNED],
+                    "result": {"kind": "OK", "delay": 1.3}})
     p = Pty(sudo_cmd("sudo -k; sudo id -un; stty -a | grep -o -- '-\\?echo ' | head -1 | tr -d ' ' | sed 's/^/ECHO=/'"))
     assert p.expect(LR, 8), p.buf
+    assert p.expect(NEXT_RIGHT, 8) and p.expect(LOOK, 8), p.buf
     assert p.expect("Face recognized.", 8), p.buf
+    assert p.buf.count("password for") == 1, "one prompt, never replaced"
+    assert p.buf.index("password for") < p.buf.index(LR) < p.buf.index(NEXT_RIGHT) < p.buf.index(LOOK)
     assert p.wait() == 0 and "root" in p.buf and "ECHO=echo" in p.buf, p.buf
 
 
-def test_real_sudo_a_failed_head_turn_asks_for_the_password_again(mock):
+def test_real_sudo_a_failed_head_turn_says_so_and_the_same_prompt_takes_the_password(mock):
     MARKER.touch()
     scenario(mock, {"accept": {"mode": "parallel-tty", "timeout": 8}, "states": [CHALLENGE],
-                    "result": {"kind": "FAIL", "delay": 0.8, "reason": "spoof"}})
+                    "result": {"kind": "FAIL", "delay": 0.8, "reason": "challenge"}})
     p = Pty(sudo_cmd("sudo -k; sudo id -un"))
     assert p.expect(LR, 8), p.buf
-    assert p.expect("Face not recognized.", 8), p.buf
-    assert p.expect("password for", 8), p.buf
+    assert p.expect(NOT_COMPLETED, 8), p.buf
+    assert p.buf.count("password for") == 1, "the prompt that was open all along takes the password"
     p.send(PASSWORD + "\n")
     assert p.wait() == 0 and "root" in p.buf, p.buf
 
 
 def test_real_sudo_a_wrong_password_after_a_failed_head_turn_is_still_refused(mock):
-    """The cancelled prompt and the second one must not become a way in: a wrong password is refused,
-    the right one accepted, and the face machinery never says "no" on its own."""
+    """Nothing the face machinery says may open a door: a wrong password is refused, the right one accepted."""
     MARKER.touch()
     scenario(mock, {"accept": {"mode": "parallel-tty", "timeout": 8}, "states": [CHALLENGE],
                     "result": {"kind": "FAIL", "delay": 0.8, "reason": "challenge"}})
     p = Pty(sudo_cmd("sudo -k; sudo sh -c 'echo AUTHENTICATED-$(id -un)'"))
-    assert p.expect("Face not recognized.", 8), p.buf
-    assert p.expect("password for", 8), p.buf
+    assert p.expect(NOT_COMPLETED, 8), p.buf
     p.send("definitely-not-the-password\n")
     assert p.expect("Sorry, try again", 15), p.buf
     assert "AUTHENTICATED-" not in p.buf, p.buf
@@ -169,29 +174,43 @@ def test_real_sudo_a_wrong_password_after_a_failed_head_turn_is_still_refused(mo
     assert p.wait() == 0 and "AUTHENTICATED-root" in p.buf, p.buf
 
 
+def test_real_sudo_a_password_typed_during_the_head_turn_is_not_echoed_and_wins_at_once(mock):
+    """Found by hand: with the prompt withdrawn for the instruction, what the person typed (the habit) was
+    echoed in clear on the terminal, then kept as the start of the next attempt."""
+    MARKER.touch()
+    scenario(mock, {"accept": {"mode": "parallel-tty", "timeout": 20},
+                    "states": [[0.3, "STATE phase=challenge seq=lr timeout=10"]], "result": {"kind": "HANG"}})
+    t0 = time.monotonic()
+    p = Pty(sudo_cmd("sudo -k; sudo id -un"))
+    assert p.expect(LR, 8), p.buf
+    time.sleep(0.3)
+    p.send(PASSWORD + "\n")
+    assert p.wait() == 0 and "root" in p.buf, p.buf
+    assert PASSWORD not in p.buf, "the password was echoed on the terminal:\n" + p.buf
+    assert time.monotonic() - t0 < 6, "the head turn must not hold a typed password back"
+
+
 def test_real_sudo_a_daemon_that_goes_silent_after_the_instruction_costs_a_few_seconds(mock):
     """The scan budget is 30 s; the head turn announced 1 s: the module waits that long plus its margin,
-    then the password prompt comes back and works."""
+    says the test was not completed, and the prompt (open all along) takes the password."""
     MARKER.touch()
     scenario(mock, {"accept": {"mode": "parallel-tty", "timeout": 30},
                     "states": [[0.3, "STATE phase=challenge seq=lr timeout=1"]], "result": {"kind": "HANG"}})
     t0 = time.monotonic()
     p = Pty(sudo_cmd("sudo -k; sudo id -un"))
     assert p.expect(LR, 8), p.buf
-    assert p.expect("Face not recognized.", 10), p.buf
+    assert p.expect(NOT_COMPLETED, 10), p.buf
     assert time.monotonic() - t0 < 9, "the module waited for the whole scan budget"
-    assert p.expect("password for", 8), p.buf
-    time.sleep(0.2)
     p.send(PASSWORD + "\n")
     assert p.wait() == 0 and "root" in p.buf, p.buf
 
 
 def test_real_su_head_turn_leaves_the_terminal_usable(mock, su_target):
-    scenario(mock, {"accept": {"mode": "parallel-tty", "timeout": 8}, "states": [CHALLENGE],
-                    "result": {"kind": "OK", "delay": 1.0}})
+    scenario(mock, {"accept": {"mode": "parallel-tty", "timeout": 8}, "states": [CHALLENGE, *TURNED],
+                    "result": {"kind": "OK", "delay": 1.2}})
     p = Pty(sudo_cmd(f"su {su_target} -c 'id -un'; stty -a | grep -o -- '-\\?echo ' | head -1 | tr -d ' ' "
                      "| sed 's/^/ECHO=/'; read -r -t 3 line; echo \"NEXT=[$line]\""))
     assert p.expect(LR, 8), p.buf
-    assert p.expect("Face recognized.", 8), p.buf
+    assert p.expect(LOOK, 8) and p.expect("Face recognized.", 8), p.buf
     p.send("hello\n")
     assert p.wait() == 0 and su_target in p.buf and "ECHO=echo" in p.buf and "NEXT=[hello]" in p.buf, p.buf

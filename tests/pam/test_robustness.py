@@ -74,6 +74,9 @@ def random_stream(rng):
               b"ACCEPT\n", b"SKIP reason=x\n", b"STATE phase=detect\n", b"OK score=0.93\n", b"OK\n",
               b"FAIL reason=mismatch\n", b"FAIL\n", b"\n", b"\n\n\n", b"OK score=", b"ACCEPT mode=",
               b"STATE phase=challenge seq=lr\n", b"STATE phase=challenge seq=rl\n", b"STATE phase=challenge\n",
+              b"STATE phase=turned seq=lr step=1\n", b"STATE phase=turned seq=rl step=2\n",
+              b"STATE phase=turned seq=lr step=-3\n", b"STATE phase=turned step=99999999999999999999\n",
+              b"FAIL reason=spoof\n",
               b"STATE phase=challenge seq=" + b"A" * 300 + b"\n", b"FAIL reason=challenge\n",
               b"timeout=1e999 ", b"\x00", b"\xff\xfe", b"=" * 100, b"A" * 2500, b" " * 1500]
     out = b""

@@ -57,28 +57,42 @@ message final :
 ```
 STATE phase=searching
 STATE phase=face
-STATE phase=challenge seq=lr timeout=8.0
+STATE phase=challenge seq=lr timeout=12.0
+STATE phase=turned seq=lr step=1
+STATE phase=turned seq=lr step=2
 OK score=0.612
 FAIL reason=timeout
 ```
 
-`STATE phase=challenge seq=lr|rl timeout=8.0` : le visage est reconnu, la personne doit
+`STATE phase=challenge seq=lr|rl timeout=12.0` : le visage est reconnu, la personne doit
 maintenant tourner la tête (`lr` : vers *sa* gauche puis vers sa droite ; `rl` :
 l'inverse, voir `challenge.py`). `timeout` est la durée du défi seul : à partir de là, le
 module n'attend plus que cette durée (+ 3 s de marge) au lieu de ce qui reste du budget annoncé
-par `ACCEPT`. Le démon n'envoie que ces codes ; **le texte de
-l'instruction et sa traduction sont dans le module**, qui l'affiche par
-`pam_info`. En mode `sequential` c'est immédiat ; en `parallel-tty` le module
-annule d'abord l'invite de mot de passe en attente (comme pour un visage
-reconnu : état du terminal rétabli) pour avoir la conversation à lui, et, si le
-défi échoue, `pam_unix` redemande le mot de passe ; en `parallel` (dialogue
-graphique qui garde son invite ouverte) l'invite ne peut pas être interrompue :
-le démon n'y demande pas de défi (il passe le service en `sequential`).
+par `ACCEPT`.
+
+`STATE phase=turned seq=lr|rl step=1|2` : un mouvement a été vu (`step=1` : le premier côté ; `step=2` :
+les deux côtés, il reste à regarder l'écran). Le module le confirme à la personne (« Bien. Maintenant,
+tournez nettement la tête vers votre droite. ») ; sans confirmation, la personne sait que son mouvement
+n'a pas été vu (trop petit, trop rapide). Les valeurs hors de `1`/`2`, un `turned` sans `challenge` ou
+répété sont ignorés.
+
+Le démon n'envoie que ces codes ; **le texte de l'instruction, des confirmations et leur traduction sont
+dans le module**. En mode `sequential` il les affiche par `pam_info`. En `parallel-tty` (`sudo`, `su`,
+`login`) l'invite de mot de passe est déjà ouverte dans un thread et la conversation PAM n'est pas
+réentrante : le module **laisse l'invite ouverte** et écrit le texte directement sur le terminal
+(`/dev/tty`), sur la ligne en dessous. Rien d'autre ne change : le mot de passe peut être tapé (sans écho,
+c'est l'application qui gère le terminal) à tout moment et met fin au défi, comme pendant le scan simple.
+Si le défi échoue, le message d'échec est écrit de la même façon et la même invite reçoit le mot de passe.
+En `parallel` (dialogue graphique qui garde son invite ouverte) rien ne peut être écrit à côté : le démon
+n'y demande pas de défi (il passe le service en `sequential`).
 
 `FAIL reason` ∈ `timeout`, `no-face`, `mismatch`, `spoof` (surface plane ou
 autre personne pendant le défi), `challenge` (visage reconnu mais défi non
-accompli : délai dépassé, pas assez de texture, visage perdu), `camera-error`,
-`cancelled`, `error`.
+accompli : mouvement trop petit ou trop rapide, délai dépassé, visage non reconnu de nouveau à la fin,
+visage perdu, pas assez de texture), `camera-error`, `cancelled`, `error`. Le module dit « Le test de
+rotation de la tête n'a pas abouti » pour `challenge`, « … a échoué » pour `spoof` (seulement si la
+consigne a été donnée : `spoof` désigne aussi une caméra figée) et « Visage non reconnu » sinon. Un démon
+muet ou disparu pendant le défi est traité comme `challenge`.
 
 Un module ne considère l'authentification réussie que sur `OK`, reçu sur une
 socket dont le pair est `root` (ou l'utilisateur système du démon). Tout
@@ -109,7 +123,7 @@ attentes sans borne sont celles que l'utilisateur impose lui-même : le mot de p
 |----------------|------------------------------------------------------------------------------|
 | `sequential`   | scan d'abord ; en cas d'échec la pile PAM invite ensuite au mot de passe     |
 | `parallel`     | l'invite « Password: » est affichée *pendant* le scan (thread dédié) ; si le visage gagne, l'invite en attente est **abandonnée** (frontaux graphiques) |
-| `parallel-tty` | comme `parallel`, mais l'invite en attente est **annulée** (`pthread_cancel`) et l'état du terminal restauré (`sudo`, `su`, `login`) |
+| `parallel-tty` | comme `parallel`, mais quand le visage gagne l'invite en attente est **annulée** (`pthread_cancel`) et l'état du terminal restauré (`sudo`, `su`, `login`) ; les consignes du défi de tête sont écrites sur le terminal sans toucher à l'invite |
 
 Dans les modes parallèles, si l'utilisateur valide un mot de passe vide, le
 module relance un scan (jusqu'à `max_rescans` fois) : c'est le geste « je

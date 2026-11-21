@@ -40,6 +40,20 @@ class ScanResult:
     challenge: dict | None = None   # head-turn test: sequence, peak parallax, steps, reason...
 
 
+def hint_for(st: head_turn.State, turn: float) -> str:
+    """Why a head turn failed, in a form `facial-auth test --liveness` can word for the person.
+    Never sent to a login (it would teach an attacker what to fix)."""
+    if st.verdict == "passed":
+        return ""
+    if st.reason in ("flat-surface", "identity-changed", "lost-face", "no-texture", "final-match"):
+        return {"flat-surface": "flat"}.get(st.reason, st.reason)
+    if st.first_sign and st.wanted_first and st.first_sign != st.wanted_first:
+        return "wrong-way"          # turned to the other side first (or the camera image is mirrored)
+    if st.step >= 1:
+        return "second-turn"
+    return "too-fast" if st.peak >= turn else "too-little"
+
+
 class Scanner:
     def __init__(self, engine: FaceEngine, clock: Callable[[], float] = time.monotonic,
                  sleep: Callable[[float], None] = time.sleep) -> None:
@@ -166,9 +180,10 @@ class Scanner:
 
         def verdict(st: head_turn.State) -> ScanResult:
             info.update(peak=round(st.peak, 4), steps=st.step, points=st.points,
-                        shape=round(st.shape_change, 4), reason=st.reason)
-            log.info("head-turn %s: %s %s (peak %.3f, %d/2 steps, %d points)", sequence, st.verdict,
-                     st.reason or "-", st.peak, st.step, st.points)
+                        shape=round(st.shape_change, 4), reason=st.reason, hint=hint_for(st, params.turn))
+            log.info("head-turn %s: %s %s (peak %.3f of %.3f needed, %d/2 steps, %d points)%s", sequence,
+                     st.verdict, st.reason or "-", st.peak, params.turn, st.step, st.points,
+                     "" if not info["hint"] else " hint=" + info["hint"])
             if st.verdict == "passed":
                 return finish(True, "", score)
             return finish(False, "spoof" if st.reason in ("flat-surface", "identity-changed") else "challenge")
@@ -179,6 +194,7 @@ class Scanner:
             # the module shows the instruction and waits no longer than this (plus its slack)
             progress("challenge", seq=sequence, timeout=f"{params.timeout:.1f}")
         read_failures = 0
+        announced = 0
         while True:
             t0 = self._clock()
             if cancelled():
@@ -208,6 +224,10 @@ class Scanner:
                 log.error("head-turn: unexpected %s: %s", type(exc).__name__, exc)
                 info["reason"] = "error"
                 return finish(False, "error")
+            if st.step > announced and progress:
+                # "Good, now the other side": the person sees that the turn was seen
+                announced = st.step
+                progress("turned", seq=sequence, step=str(st.step))
             if st.verdict != "pending":
                 return verdict(st)
             self._pace(t0, period)

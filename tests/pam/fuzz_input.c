@@ -36,7 +36,8 @@ static unsigned pick(unsigned n)
 
 static const char *const TOKENS[] = {
     "ACCEPT", "SKIP", "STATE", "OK", "FAIL", "VERIFY", "accept", " ", "  ", "\t", "\r", "=", "==", "mode=",
-    "timeout=", "score=", "reason=", "phase=", "seq=", "challenge", "lr", "rl", "STATE phase=challenge seq=lr",
+    "timeout=", "score=", "reason=", "phase=", "seq=", "step=", "challenge", "turned", "lr", "rl",
+    "STATE phase=challenge seq=lr", "STATE phase=turned seq=rl step=1", "step=2", "step=-1", "step=99999999999999999999",
     "parallel", "parallel-tty", "sequential", "bogus", "nan", "NaN",
     "inf", "-inf", "-1", "0", "1e999", "1e-999", "0x1p3", "99999999999999999999", "%", "%00", "%zz",
     "\xff", "\xc3\x28", "A", "..", "/", "mode=parallel-tty", "timeout=2", "timeout=nan", "score=0.99",
@@ -76,6 +77,12 @@ static void fuzz_parse_reply(unsigned long iterations)
         assert(r.kind >= REPLY_NONE && r.kind <= REPLY_UNKNOWN);
         assert(strnlen(r.mode, sizeof r.mode) < sizeof r.mode);
         assert(strnlen(r.reason, sizeof r.reason) < sizeof r.reason);
+        assert(strnlen(r.phase, sizeof r.phase) < sizeof r.phase && strnlen(r.seq, sizeof r.seq) < sizeof r.seq);
+        assert(r.step >= 0 && r.step <= 9);               /* whatever the daemon sent as "step=" */
+        assert(!is_turned(&r) || (r.step >= 1 && r.step <= 2));
+        /* the texts shown to the person never depend on anything but a few codes */
+        assert(step_text(&r) != NULL && challenge_text(&r) != NULL);
+        assert(failure_text(r.reason, true) != NULL && failure_text(r.reason, false) != NULL);
         double t = sane_timeout(r.timeout);
         assert(t >= 0.5 && t <= 60.0);                    /* whatever the daemon announced */
     }

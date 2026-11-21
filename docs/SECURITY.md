@@ -68,9 +68,15 @@ exigent l'infrarouge. L'assistant d'enrôlement propose cette vérification.
 
 ### 2. Le défi de tête (`liveness.mode = challenge`, par défaut)
 
-Une fois le visage reconnu, la personne doit **tourner lentement la tête vers sa gauche puis vers sa
-droite (ou l'inverse, tiré au hasard), puis regarder l'écran**. L'instruction s'affiche dans la
-conversation PAM ; en cas d'échec, le mot de passe est demandé comme d'habitude.
+Une fois le visage reconnu (c'est ce qui fait apparaître la consigne), la personne doit **tourner
+nettement la tête vers sa gauche puis vers sa droite (ou l'inverse, tiré au hasard), puis regarder
+l'écran**. Chaque mouvement vu est confirmé (« Bien. Maintenant, tournez nettement la tête vers votre
+droite. ») : on sait où l'on en est, et si la confirmation ne vient pas, c'est que le mouvement n'a pas
+été vu. Dans un terminal (`sudo`, `su`, console) l'invite du mot de passe **reste ouverte** : la consigne
+s'écrit sous elle et le mot de passe peut être tapé à tout moment, ce qui met fin au défi ; sur un écran de
+connexion ou un dialogue graphique, les messages passent par la conversation PAM et, en cas d'échec, le
+mot de passe est demandé comme d'habitude. L'échec est dit tel qu'il est : « Le test de rotation de la tête
+n'a pas abouti » veut dire que le visage **a** été reconnu et que le geste n'a pas été validé.
 
 Le principe n'est pas « le visage a-t-il bougé ? » (une feuille tenue à la main bouge, s'incline, pivote
 et se plie) mais « **le visage est-il plat ?** » : tout mouvement rigide d'une surface plane est une
@@ -99,19 +105,62 @@ caméra) :
 | Photo plane tenue à la main, inclinée jusqu'à 40° (60 mouvements × 2 ordres) | médiane 0,004 ; max 0,026 | **0 fois** |
 | Photo plane avec reflet qui glisse (60 × 2) | médiane 0,015 | **0 fois** |
 | Feuille pliée, bombement de 2 cm (un seul sens) | max 0,07 | 0 à 3 % |
-| Feuille pliée, bombement de 4 cm | max 0,05 | 0 à 12 % (selon l'axe) |
-| Surface bombée dans les deux sens, 2 cm / 4 cm | max 0,04 / 0,13 | ≈ 3 % / ≈ 20 % |
+| Feuille pliée, bombement de 4 cm | max 0,05 | 0 à 18 % (selon l'axe) |
+| Surface bombée dans les deux sens, 2 cm / 4 cm | max 0,04 / 0,13 | ≈ 6 % / ≈ 28 % |
 | Vraie rotation, **mauvais ordre** (rediffusion d'un autre enregistrement) | — | 0 % |
-| Tête 3D qui tourne comme demandé (nez de 1,6 à 3 cm), un geste de 2 s sur les 8 s permis | 0,04 à 0,09 | 82 à 96 % |
+| Tête 3D qui tourne comme demandé (14 à 28°, nez de 1,6 à 2,2 cm) | 0,03 à 0,09 | ≈ 96 % |
 
-Seuil par défaut `challenge_turn = 0.025` : une surface plane tenue à la main donne typiquement 0,005
-(le plus grand pic isolé observé : 0,026, qui ne suffit pas puisqu'il faut franchir `+seuil` puis `-seuil`
-dans l'ordre demandé, plusieurs images de suite) ; une vraie tête l'atteint vers 10° de rotation. `facial-auth test --liveness` affiche les valeurs mesurées sur
-votre caméra (pic de parallaxe, étapes franchies, nombre de points suivis) pour régler ce seuil avec votre
-photo et votre visage.
+**Combien tourner, et à quelle vitesse ?** Même simulation, 7 à 8 essais par ligne (ordres de grandeur, pas
+des statistiques) :
+
+| Amplitude de chaque côté | Passe le défi (seuil 0,02) |
+|---|---|
+| 5° | 0 % |
+| 7° | 0 à 14 % |
+| 9° | 0 à 75 % |
+| 11° | 43 à 71 % |
+| 13° | 71 à 86 % |
+| 16° | 88 à 100 % |
+| 20° | 86 à 100 % |
+
+Un mouvement **léger** (moins de 10°) ne franchit pas le seuil : c'est la cause la plus probable d'un refus.
+La **vitesse** compte beaucoup moins : un aller-retour complet de 1,2 à 6 s passe 75 à 100 % des fois, mais
+en 0,8 s seulement 6 fois sur 10 (il faut rester au-delà du seuil trois images de suite : marquez une
+courte pause à chaque côté). La limite est le **délai global de 12 s** (`challenge_timeout`), qui court
+dès l'envoi de la consigne et comprend sa lecture (2 à 3 s) ainsi que le retour face à l'écran, où le même
+visage doit être reconnu à nouveau.
+
+Seuil par défaut `challenge_turn = 0.02` : une surface plane tenue à la main donne typiquement 0,005 (le
+plus grand pic isolé observé : 0,026, qui ne suffit pas puisqu'il faut franchir `+seuil` puis `-seuil`
+dans l'ordre demandé, plusieurs images de suite) ; une vraie tête l'atteint vers 10° de rotation (un peu
+plus pour un nez peu saillant). Un seuil de 0,025 (essayé d'abord) refusait trop souvent des gestes
+pourtant corrects (14 % d'échecs à 20°) ; descendre à 0,015 laisserait passer 5 % des photos avec reflet.
 
 Un échec du défi (visage plat, autre personne, délai dépassé) compte comme un échec pour le verrouillage
 du chemin facial, avec des verrouillages de plus en plus longs.
+
+#### Si le défi vous refuse
+
+1. **Lisez le message.** « Face not recognized » : le visage n'a pas été reconnu. « Le test de rotation
+   de la tête n'a pas abouti » : le visage l'a été (sans cela la consigne n'apparaît pas), c'est le geste
+   qui n'a pas été validé.
+2. **`facial-auth test`** rejoue le test et **dit quoi changer** : tourner plus loin, moins vite, de l'autre
+   côté, regarder l'écran en face à la fin… Avec `--liveness` il affiche aussi les mesures : `peak` (pic
+   de parallaxe, à comparer à `challenge_turn`), `steps` (mouvements validés sur 2), `points` (points du
+   visage suivis), `hint`.
+3. **Le journal** garde la même chose pour chaque tentative :
+   `journalctl -u facial-authd | grep head-turn`, par exemple
+   `head-turn lr: failed challenge-timeout (peak 0.012 of 0.020 needed, 0/2 steps, 87 points) hint=too-little`.
+   `too-little` : mouvement trop petit ; `too-fast` : seuil atteint sans tenir trois images ;
+   `wrong-way` : l'autre côté d'abord (ou image en miroir : `liveness.mirror = true`) ; `second-turn` : un
+   seul côté vu ; `final-match` : les deux côtés vus mais visage pas reconnu de nouveau, de face ;
+   `lost-face`, `no-texture` (trop sombre ou trop loin).
+4. **Réglages** (`/etc/facial-auth/facial-auth.conf`, section `[liveness]`) : `challenge_turn` plus bas si
+   votre `peak` s'arrête juste sous le seuil malgré un vrai geste ; `challenge_timeout` plus haut si le
+   temps manque.
+5. **Niveau « Strict »** : il relève aussi le seuil de la dernière étape (le visage de face, reconnu de
+   nouveau après les deux rotations). Si le journal dit `final-match`, regardez l'écran bien en face, dans
+   une lumière franche, ou repassez au niveau « Standard ».
 
 ### 3. Rien ne dépend d'une seule défense
 

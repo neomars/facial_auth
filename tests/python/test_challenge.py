@@ -82,6 +82,65 @@ def test_not_turning_enough_times_out_without_being_called_flat():
     assert st.peak < 0.02 and st.step == 0
 
 
+@pytest.mark.parametrize("seed", [3, 4, 5])
+def test_a_clear_turn_of_about_eighteen_degrees_is_enough(seed):
+    """What the instruction asks for ("clearly"): 15 to 20 degrees to each side."""
+    st = play(Scene("head", nose_mm=20.0, seed=seed), head_turns(+1, amplitude_deg=18.0))
+    assert st.verdict == "passed", (st.reason, st.peak, st.step)
+
+
+def test_somebody_who_turned_almost_far_enough_is_not_taken_for_a_picture():
+    """peak 0.019 against a bar of 0.02: a timeout, not a "flat surface" (which counts as a spoof)."""
+    st = play(Scene("head", nose_mm=20.0, seed=4), head_turns(+1, amplitude_deg=15.0))
+    if st.verdict == "failed":
+        assert st.reason == "challenge-timeout", (st.reason, st.peak)
+
+
+def test_a_slight_turn_is_not_enough_and_the_failure_says_to_turn_further():
+    from facial_auth.scan import hint_for
+    st = play(Scene("head", nose_mm=20.0, seed=8), head_turns(+1, amplitude_deg=6.0))
+    assert st.verdict == "failed" and st.step == 0 and st.peak < PARAMS.turn
+    assert hint_for(st, PARAMS.turn) == "too-little"
+
+
+def test_a_generous_time_budget_lets_a_slow_gesture_finish():
+    """"Slowly" must not cost the login: three seconds per cycle, instruction read for a while first."""
+    slow = [(0.0, 0.0, 0.0)] * 30 + head_turns(+1, frames=90)       # 2 s of reading, a 6 s gesture
+    st = play(Scene("head", seed=9), slow, params=Params(timeout=12.0))
+    assert st.verdict == "passed", (st.reason, st.peak, st.step)
+    st = play(Scene("head", seed=9), slow, params=Params(timeout=5.0))
+    assert st.verdict == "failed", "...and the old budget would not have"
+
+
+def test_a_quick_flick_is_told_apart_from_a_turn_in_the_wrong_direction():
+    from facial_auth.scan import hint_for
+    flick = [(0.0, 0.0, 0.0)] * 2 + [(0.0, 0.0, 0.0), (0.12, 0, 0), (0.35, 0, 0), (0.0, 0, 0)] + [(0.0, 0, 0)] * 10
+    st = play(Scene("head", nose_mm=30.0, seed=3), flick, "lr", PARAMS)
+    assert st.verdict == "failed" and st.step == 0
+    assert hint_for(st, PARAMS.turn) in ("too-fast", "too-little"), (st.peak, st.first_sign)
+    st = play(Scene("head", nose_mm=30.0, seed=3), head_turns(-1), "lr", PARAMS)
+    assert hint_for(st, PARAMS.turn) == "wrong-way", (st.first_sign, st.wanted_first, st.peak)
+
+
+def test_the_failure_hints_tell_the_causes_apart():
+    from facial_auth.challenge import State
+    from facial_auth.scan import hint_for
+    turn = PARAMS.turn
+    assert hint_for(State(verdict="passed"), turn) == ""
+    assert hint_for(State(verdict="failed", reason="challenge-timeout", step=0, peak=0.004), turn) == "too-little"
+    # the bar was reached on the asked side, but not for long enough: a flick
+    assert hint_for(State(verdict="failed", reason="challenge-timeout", step=0, peak=0.05, first_sign=1,
+                          wanted_first=1), turn) == "too-fast"
+    # the other side first (or a mirrored camera)
+    assert hint_for(State(verdict="failed", reason="challenge-timeout", step=0, peak=0.05, first_sign=-1,
+                          wanted_first=1), turn) == "wrong-way"
+    assert hint_for(State(verdict="failed", reason="challenge-timeout", step=1, peak=0.05, first_sign=1,
+                          wanted_first=1), turn) == "second-turn"
+    for reason, hint in [("final-match", "final-match"), ("lost-face", "lost-face"), ("no-texture", "no-texture"),
+                         ("identity-changed", "identity-changed"), ("flat-surface", "flat")]:
+        assert hint_for(State(verdict="failed", reason=reason, step=1, peak=0.05), turn) == hint
+
+
 # ------------------------------------------------------------------------------- attacks
 @pytest.mark.parametrize("seed", range(6))
 @pytest.mark.parametrize("sequence", ["lr", "rl"])
@@ -122,7 +181,7 @@ def test_the_same_person_must_be_there_again_at_the_end():
         return (0.3, found) if i >= 22 else (sim, found)      # a lookalike: not unlike enough to be a swap
 
     st = play(Scene("head", seed=9), head_turns(+1), hook=stranger_at_the_end)
-    assert st.verdict == "failed" and st.reason == "challenge-timeout" and st.step == 2
+    assert st.verdict == "failed" and st.reason == "final-match" and st.step == 2
 
 
 def test_a_face_that_leaves_the_picture_fails():

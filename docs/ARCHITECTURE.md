@@ -42,6 +42,10 @@ surveille le démon :
   **abandonnée** (annuler un thread dans du code GLib/D-Bus est dangereux) et le
   module est épinglé en mémoire (`-z nodelete`) pour que ce thread puisse
   revenir après `pam_end` ;
+* pendant le défi de tête, l'invite reste ouverte (`parallel-tty`) : les consignes sont écrites
+  directement sur `/dev/tty`, sous l'invite (`tty_say()`), puisque la conversation n'est pas réentrante ;
+  aucun réglage du terminal n'est modifié, donc rien ne s'affiche de ce qui est tapé et `Ctrl-C` agit
+  comme d'habitude ;
 * si l'utilisateur saisit un mot de passe : le scan est annulé, le mot de passe
   est posé dans `PAM_AUTHTOK` et le module renvoie `PAM_IGNORE` ; `pam_unix`
   (profil `Auth:` avec `try_first_pass`) l'utilise sans le redemander, de même
