@@ -84,6 +84,50 @@ except GLib.Error as exc:
 """
 
 
+# Run as an ordinary user: hand the daemon pictures of every kind and print what each one gets.
+ANALYZE = r"""
+import cv2, numpy as np
+from gi.repository import Gio, GLib
+conn = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+def analyse(data):
+    try:
+        conn.call_sync("io.github.neomars.FacialAuth1", "/io/github/neomars/FacialAuth1",
+                       "io.github.neomars.FacialAuth1.Manager", "AnalyzeImage", GLib.Variant("(ay)", (data,)), None,
+                       Gio.DBusCallFlags.NONE, 30000, None)
+        return "ANALYSED"
+    except GLib.Error as exc:
+        return "ERROR " + Gio.DBusError.get_remote_error(exc) + " " + exc.message
+head = b'<VRTDataset rasterXSize="4" rasterYSize="4"><!--'
+blobs = {
+    "jpeg": cv2.imencode(".jpg", np.zeros((120, 160, 3), np.uint8))[1].tobytes(),
+    "png": cv2.imencode(".png", np.zeros((120, 160, 3), np.uint8))[1].tobytes(),
+    "radiance-hdr": b"#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y 8 +X 8\n" + bytes(200),
+    "sun-raster": b"\x59\xa6\x6a\x95" + bytes(200),
+    "jpeg2000": b"\0\0\0\x0cjP  \r\n\x87\n" + bytes(200),
+    "openexr": b"v/1\x01\x02\0\0\0" + bytes(200),
+    "dicom": bytes(128) + b"DICM" + bytes(200),
+    "nitf": b"NITF02.10" + bytes(200),
+    "gdal-vrt": head + b"x" * (140 - len(head)) + b"DTED--><VRTRasterBand/></VRTDataset>",
+}
+for name, blob in blobs.items():
+    print(name, analyse(blob))
+"""
+
+# Run as an ordinary user: test one's own account's recognition (it switches the camera on).
+TEST_OWN_ACCOUNT = r"""
+import sys
+from gi.repository import Gio, GLib
+conn = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+try:
+    conn.call_sync("io.github.neomars.FacialAuth1", "/io/github/neomars/FacialAuth1",
+                   "io.github.neomars.FacialAuth1.Manager", "TestRecognition", GLib.Variant("(ss)", (sys.argv[1], "")),
+                   None, Gio.DBusCallFlags.NONE, 30000, None)
+    print("RAN")
+except GLib.Error as exc:
+    print("ERROR", Gio.DBusError.get_remote_error(exc), exc.message)
+"""
+
+
 def as_user(user, code, *args, env=None, timeout=60):
     cmd = ["setpriv", f"--reuid={user}", f"--regid={user}", "--clear-groups", PYTHON, "-c", code, *args]
     r = subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=timeout)
@@ -223,3 +267,33 @@ def test_polkitd_refuses_unowned_actions_which_is_what_the_annotation_fixes(rig)
         unowned.unlink(missing_ok=True)
     assert refused.startswith("ERROR") and "Only trusted callers" in refused, refused
     assert accepted.startswith("ANSWERED"), accepted
+
+
+@needs_polkit
+def test_an_ordinary_user_can_have_the_daemon_open_nothing_but_jpeg_and_png(rig):
+    """AnalyzeImage needs only use-camera, which polkit gives without a password to the active local
+    session (a rule stands for it here: a container has no session).  What that user sends is read by
+    the process that answers PAM, so only JPEG and PNG may reach OpenCV, which also decodes GDAL, GDCM,
+    OpenEXR, JPEG 2000...  This is the audited path, end to end: real polkitd, real packaged daemon."""
+    with rule(GRANT_TO_CLIENT):
+        out = as_user(CLIENT, ANALYZE, env=rig["env"], timeout=120)
+    answers = dict(line.split(" ", 1) for line in out.splitlines() if " " in line)
+    assert set(answers) >= {"jpeg", "png", "radiance-hdr", "sun-raster", "jpeg2000", "openexr", "dicom", "nitf",
+                            "gdal-vrt"}, out
+    for name in ("jpeg", "png"):
+        assert answers[name].startswith("ANALYSED") or "EngineUnavailable" in answers[name], (name, answers[name])
+    for name in ("radiance-hdr", "sun-raster", "jpeg2000", "openexr", "dicom", "nitf", "gdal-vrt"):
+        assert "BadImage" in answers[name] and "only JPEG and PNG" in answers[name], (name, answers[name])
+    log = rig["logs"]["daemon"].read_text()
+    assert "Traceback" not in log or "BadImage" not in log
+
+
+@needs_polkit
+def test_testing_ones_own_recognition_needs_use_camera_like_a_preview(rig):
+    """It switches the camera on: from a session that polkit does not consider an active local one
+    (ssh, a background job) it used to work, for any account's own sessions."""
+    refused = as_user(CLIENT, TEST_OWN_ACCOUNT, CLIENT, env=rig["env"])
+    assert "AccessDenied" in refused and "use-camera" in refused, refused
+    with rule(GRANT_TO_CLIENT):
+        allowed = as_user(CLIENT, TEST_OWN_ACCOUNT, CLIENT, env=rig["env"])
+    assert "AccessDenied" not in allowed, allowed              # it gets as far as "no face linked to this account"

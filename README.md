@@ -59,6 +59,11 @@ sudo apt install ./facial-auth_X.Y.Z_amd64.deb ./facial-auth-gtk_X.Y.Z_all.deb
 Les releases se publient depuis GitHub (voir [`docs/RELEASE.md`](docs/RELEASE.md)) : un workflow
 compile, teste sur une machine propre, puis attache les paquets à la release.
 
+> `SHA256SUMS` est publié au même endroit que les paquets : il révèle un téléchargement corrompu, **pas
+> une release modifiée**. Les publications ne sont pas encore signées (voir
+> [`docs/SECURITY.md`](docs/SECURITY.md#audit-de-sécurité-de-novembre-2026)) : ces paquets s'exécutent en
+> root à l'installation, installez-les seulement depuis ce dépôt.
+
 ### Depuis les sources
 
 ```bash
@@ -81,6 +86,7 @@ modèles manquent (paquet compilé sans eux, hors ligne) :
 sudo facial-auth fetch-models              # télécharge et vérifie (SHA-256)
 sudo facial-auth fetch-models --from DIR   # ou installe depuis un dossier
 facial-auth doctor                         # diagnostic complet
+sudo facial-auth purge-orphans             # efface les visages de comptes supprimés ou renommés
 ```
 
 Puis lier votre visage :

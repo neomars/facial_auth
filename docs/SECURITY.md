@@ -11,10 +11,13 @@
 | Un **sosie** / un proche enrôlé sur la même machine | le visage doit battre tous les autres gabarits d'au moins `impostor_margin` |
 | Un **processus local malveillant** fait croire à un succès | le module n'accepte `OK` que d'une socket dont le pair est `root` (ou `facial-auth`) ; la socket est dans un dossier de `root` |
 | Un utilisateur interroge le démon **pour un autre compte** | `SO_PEERCRED` : un non-root ne peut vérifier que lui-même |
-| **Force brute** | après `max_failures` échecs en `failure_window` s (visage inconnu, photo, défi raté), le chemin facial est verrouillé `lockout` s, **puis deux fois plus longtemps à chaque verrouillage** (jusqu'à `lockout_max`, 1 h) : insister ne paie pas (le mot de passe n'est jamais verrouillé par ce mécanisme) |
+| **Force brute** | après `max_failures` échecs en `failure_window` s (visage inconnu, photo, défi raté), le chemin facial est verrouillé `lockout` s, **puis deux fois plus longtemps à chaque verrouillage** (jusqu'à `lockout_max`, 1 h) : insister ne paie pas (le mot de passe n'est jamais verrouillé par ce mécanisme). Le verrouillage est écrit dans `/var/lib/facial-auth/lockout.json` : le démon s'arrête après 15 minutes d'inactivité et peut être redémarré, attendre ou le redémarrer ne l'efface pas |
 | Fichier de configuration mal édité | valeurs bornées (seuil ≥ 0,30), fichier invalide ignoré **en entier** et signalé |
 | Fichier de gabarits corrompu | traité comme « aucun visage », jamais comme « tous les visages » |
-| Image piégée envoyée à l'API | taille limitée (8 Mio, 32 Mpx), démon sans privilèges, sans réseau, sous `MemoryMax` |
+| Image piégée envoyée à l'API | **JPEG et PNG seulement** (reconnus à leurs octets de tête : les autres formats que décode l'OpenCV d'Ubuntu, GDAL, GDCM, OpenEXR, JPEG 2000…, ne sont jamais ouverts), taille lue dans l'en-tête avant tout décodage (8 Mio, 24 Mpx), deux décodages à la fois, démon sans privilèges, sans réseau, sous `MemoryMax` |
+| Un compte supprimé, puis un autre créé avec le même numéro d'utilisateur | les visages sont rangés par numéro mais **retiennent le nom du compte** : sous un autre nom, ils ne servent à personne (`sudo facial-auth purge-orphans` les efface) |
+| Un utilisateur local écrit dans le journal du démon par la socket | `service`, `tty`, `rhost` et `ruser` sont une ligne imprimable de longueur bornée, sinon la requête est refusée (`SKIP bad-request`) |
+| Un réglage sensible changé par un détour (`SetConfig`) | le fichier de réglages de l'application est écrit par le démon, qui n'est pas root, et lu en dernier : il ne peut contenir que les réglages modifiables depuis l'application (jamais `security.*`, les commandes d'émetteur infrarouge, `allow_virtual`) ; les noms de service sont validés |
 | Modèle ONNX altéré | SHA-256 épinglé, vérifié au téléchargement **et** avant chargement |
 | Session **SSH** / distante | pas de visage (hôte PAM, `SSH_*`, session logind distante) |
 | Compte verrouillé (`passwd -l`), `root` | pas de visage |
@@ -48,6 +51,28 @@ possible, du plus au moins accessible.
 * Qualité de reconnaissance (taux de faux rejets/acceptations) : **non mesurée**
   sur de vrais visages dans cet environnement. Réglez `recognition.threshold`
   avec `facial-auth test` (valeurs plus élevées = plus strict).
+
+## Le démon fait partie de la base de confiance
+
+Le module PAM s'exécute dans `sudo`, `su`, `gdm`, `polkit-agent-helper`… Il n'accepte `OK` que d'une socket
+créée par `root` dans un dossier de `root`. Avec l'activation par socket de systemd, le module voit les
+identifiants de *celui qui a créé la socket* (root), **quel que soit le processus qui répond ensuite** : il
+ne peut pas savoir qui répond. Tout code qui s'exécute sous le compte `facial-auth` et détient la socket
+d'écoute — c'est-à-dire le démon lui-même, s'il était piégé — peut répondre « OK » à n'importe quel compte
+non verrouillé, donc devenir administrateur puis root. Sur Ubuntu `root` est protégé parce que son mot de
+passe est verrouillé et que le module ignore les comptes verrouillés, mais un compte administrateur ordinaire
+suffit.
+
+C'est pourquoi **tout ce que le démon lit venant de quelqu'un d'autre est une surface d'attaque de
+première importance** : les images envoyées à l'API (JPEG et PNG seulement, voir plus haut), le fichier de
+réglages qu'il écrit lui-même (limité aux réglages modifiables), les champs de la requête PAM (bornés), ses
+propres gabarits (un fichier illisible = « aucun visage »).
+
+**Ce qui n'est pas fait** : le démon décode toujours les images dans le même processus que celui qui répond à
+PAM. Les séparer (deux processus, deux comptes : l'un qui répond à PAM et ne décode jamais de fichier, l'autre
+qui décode et n'a ni la socket ni les gabarits) est la seule mesure qui supprimerait ce risque au lieu de le
+réduire à ce que font libjpeg et libpng ; c'est un chantier de conception. D'ici là, **gardez le système à
+jour** (`sudo apt upgrade`) : une faille de ces deux bibliothèques serait le chemin d'attaque.
 
 ## Détecter qu'un visage est vivant
 
@@ -182,6 +207,11 @@ mot de passe fonctionne toujours. Pour des données qui valent plus qu'une webca
 * `apt purge facial-auth` supprime gabarits et modèles. Un utilisateur peut à
   tout moment supprimer ses visages (`facial-auth clear`) ou désactiver le
   visage pour son compte.
+* Quand un compte est supprimé ou renommé, ses visages ne servent plus à personne mais restent sur le
+  disque : `sudo facial-auth purge-orphans` (`--dry-run` pour voir avant) les efface. Rien n'est effacé
+  automatiquement, parce qu'un annuaire d'utilisateurs momentanément injoignable ressemble à un compte
+  supprimé et ne doit coûter son visage à personne.
+* `/var/lib/facial-auth/lockout.json` ne contient que des numéros d'utilisateur et des dates.
 
 ## Disponibilité : ne pas être enfermé dehors
 
@@ -204,4 +234,43 @@ ainsi priver les autres du visage, jamais du mot de passe.
   `camera.require_ir_check = true`.
 * Pour un portable souvent branché sur écran externe capot fermé, la caméra
   intégrée ne voit rien : le visage est ignoré (c'est voulu).
+* Garder le système à jour : le démon lit des images avec les bibliothèques d'Ubuntu (libjpeg, libpng).
 * Signaler une faille : voir le dépôt du projet.
+
+## Audit de sécurité de novembre 2026
+
+Un audit de la version 1.2.0 (relecture complète, analyse statique, essais sur le code réel) a relevé 16
+points. **Aucun ne permettait, tel quel, d'ouvrir une session ou de devenir root sans accès préalable** : le
+plus sérieux (le décodeur d'images) n'aurait servi qu'avec une faille dans une bibliothèque tierce, que
+l'audit n'a pas trouvée. Ce que chaque point permettait, à qui, et ce qui a été fait :
+
+| Point | Qui pouvait en profiter | Root requis ? | Ce que cela permettait | Correction |
+|---|---|---|---|---|
+| Décodeur d'images accessible sans mot de passe | tout utilisateur d'une session locale active | non | élargir la surface d'attaque à une douzaine de décodeurs (GDAL, GDCM, OpenEXR…) dans le processus qui répond à PAM ; lecture d'un fichier local comme « image » par GDAL | JPEG et PNG seulement, taille lue dans l'en-tête |
+| Images mal formées | idem | non | rendre le démon sourd (fuite de descripteurs par le décodeur HDR d'OpenCV), remplir le disque (fichiers temporaires Sun Raster/PFM), dépasser la limite de mémoire : 4 s d'attente avant le mot de passe à chaque authentification, jamais d'enfermement | formats refusés avant OpenCV, erreurs d'OpenCV captées |
+| Injection dans le fichier de réglages | détenteur de l'action polkit `configure` (administrateur par défaut) | oui en pratique : sans gain pour un administrateur ordinaire, ne compte que si `configure` est délégué à quelqu'un d'autre | contourner la liste des réglages interdits (`security.*`, commandes d'émetteur infrarouge) jusqu'à exécuter une commande sous `facial-auth` | noms validés ; fichier limité aux réglages modifiables |
+| Visage d'un ancien titulaire sur un numéro d'utilisateur réattribué | l'ancien titulaire d'un compte | non pour lui (un administrateur doit avoir supprimé puis recréé le compte) ; il lui faut aussi la caméra IR vérifiée et le défi de tête | ouvrir la session du nouvel arrivant avec son visage | visages liés au nom du compte ; `facial-auth purge-orphans` |
+| Lignes forgées dans le journal | tout utilisateur local | non | faire passer de fausses lignes pour celles du démon | champs de la requête validés |
+| `facial-auth doctor` lancé dans un dossier inscriptible par un tiers | quiconque écrit dans ce dossier | un administrateur doit lancer la commande | exécuter du code en root | sonde en mode isolé (`-I`, répertoire `/`) |
+| Verrouillage progressif perdu à l'arrêt du démon | un passant physique | non | plafond réel de 15 minutes au lieu d'une heure | état écrit dans `lockout.json` |
+| Fenêtres polkit non sollicitées, API de gestion bloquable | tout processus local | non | harceler avec des demandes de mot de passe ; geler l'API de gestion (pas la connexion) | drapeau d'interaction du demandeur respecté, deux demandes d'autorisation en attente par appelant, travailleurs séparés pour les appels de lecture |
+| Test de reconnaissance sans `use-camera`, messages d'erreur détaillés | une session SSH du même compte | non | allumer la caméra à distance ; lire des chemins dans les erreurs | `use-camera` exigé, messages génériques |
+| Variables d'environnement de développement, `--no-polkit` | root seulement | sans objet | — | ignorées hors `--dev` ; `--no-polkit` refusé pour le service |
+| `install_from` vérifie puis recopie | quelqu'un qui écrit dans le dossier source | un administrateur doit lancer la commande | installer un autre fichier (le démon le refuserait au chargement) | un seul passage : ce qui est vérifié est ce qui est écrit |
+| Unité systemd | — | — | marges de durcissement | `ProtectProc=invisible`, `RemoveIPC=yes` (1,6 → 1,4 à `systemd-analyze security`) |
+| Publications non signées | quiconque contrôle le compte GitHub du mainteneur | non | root chez les utilisateurs | **en partie** : le jeton n'est plus conservé dans les copies du dépôt ; voir ci-dessous |
+
+**Pas corrigé, et pourquoi :**
+
+* **Séparer le décodage des images de l'autorité qui répond à PAM** (voir plus haut) : chantier de conception.
+* **Signer les publications et épingler les actions GitHub par empreinte** : il faut une clé de signature
+  que seul le mainteneur peut créer, et les empreintes exactes de `actions/checkout`, `upload-artifact` et
+  `download-artifact` (à relever sur ces dépôts : `gh api repos/actions/checkout/commits/v4 --jq .sha`).
+  En attendant, vérifier un paquet téléchargé contre `SHA256SUMS` ne protège que d'une corruption de
+  transfert, pas d'une release modifiée.
+* **Mesures sur du vrai matériel** : taux de fausses acceptations et de faux rejets, attaques de
+  présentation (photo infrarouge imprimée, nez découpé, masque), identité de la caméra IR (nom, bus, formats :
+  fournis par le périphérique).
+* `ListUsers`, les signaux diffusés et les marqueurs `enrolled/` sont lisibles par tout utilisateur local :
+  ce sont des informations que la machine publie déjà (liste des comptes, marqueurs en 0644 voulus pour le
+  module PAM).

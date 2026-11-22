@@ -18,7 +18,6 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
-import shutil
 import tempfile
 import urllib.request
 from dataclasses import dataclass
@@ -189,16 +188,31 @@ def check_dir(directory: Path, specs: tuple[ModelSpec, ...] = ALL) -> list[str]:
 
 
 def install_from(directory: Path, paths: Paths | None = None, cv_version: str | None = None) -> list[Path]:
-    """Install already-downloaded files (offline machines): verifies them."""
+    """Install already-downloaded files (offline machines): verifies them.
+
+    Each file is read once: what is checked is what is written.  (Checking a path and then copying
+    that path again lets whoever can write in ``directory`` swap the file in between.)
+    """
     paths = paths or Paths()
     paths.models.mkdir(parents=True, exist_ok=True)
     out = []
     for spec in required(cv_version):
         src = directory / spec.filename
-        if not verify(spec, src):
+        try:
+            data = src.read_bytes()
+        except OSError as exc:
+            raise RuntimeError(f"{src}: missing or does not match the expected SHA-256") from exc
+        if len(data) != spec.size or hashlib.sha256(data).hexdigest() != spec.sha256:
             raise RuntimeError(f"{src}: missing or does not match the expected SHA-256")
         dst = paths.models / spec.filename
-        shutil.copyfile(src, dst)
-        dst.chmod(0o644)
+        fd, tmp = tempfile.mkstemp(prefix=spec.filename + ".", dir=paths.models)
+        try:
+            with os.fdopen(fd, "wb") as fh:
+                fh.write(data)
+            os.chmod(tmp, 0o644)
+            os.replace(tmp, dst)
+        except BaseException:
+            Path(tmp).unlink(missing_ok=True)
+            raise
         out.append(dst)
     return out

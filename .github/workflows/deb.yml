@@ -41,6 +41,8 @@ jobs:
     steps:
       - name: Récupérer le code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Déterminer la version des paquets
         id: version
@@ -141,6 +143,8 @@ jobs:
     steps:
       - name: Récupérer le code (tests)
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Récupérer les paquets
         uses: actions/download-artifact@v4
@@ -190,6 +194,8 @@ jobs:
     steps:
       - name: Récupérer le code (tests)
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Récupérer les paquets
         uses: actions/download-artifact@v4

@@ -15,7 +15,7 @@ from pathlib import Path
 
 from . import models
 from .client import Client, ClientError
-from .const import Paths, VERSION
+from .const import Paths, SERVICE_USER, VERSION
 from .i18n import _
 
 POSES = [_("Look straight at the camera"), _("Turn your head slightly to the left"),
@@ -370,6 +370,38 @@ def cmd_fetch_models(args) -> int:
     return 0
 
 
+def cmd_purge_orphans(args) -> int:
+    """Remove face data whose account was deleted or renamed (it is ignored meanwhile, see store.load)."""
+    if os.geteuid() != 0:
+        say(_("Run this command as root: sudo facial-auth purge-orphans"), file=sys.stderr)
+        return 1
+    from .store import FaceStore            # numpy: only this command needs it
+    owner = None
+    with contextlib.suppress(KeyError):
+        pw = pwd.getpwnam(SERVICE_USER)
+        owner = (pw.pw_uid, pw.pw_gid)
+    store = FaceStore(Paths(), owner=owner)
+    found = store.orphans()
+    if not found:
+        say(_("No orphaned face data."))
+        return 0
+    say(_("Face data that no longer belongs to the account it was enrolled for:"))
+    for o in found:
+        now = _("the account is now called '%s'") % o.current if o.current else _("no such account")
+        say(f"  uid {o.uid}: " + _("enrolled for '%s'") % o.recorded + f" - {now}")
+    if args.dry_run:
+        say(_("Nothing was removed (--dry-run)."))
+        return 0
+    if not args.yes:
+        if not sys.stdin.isatty():
+            say(_("Run again with --yes to delete this data."), file=sys.stderr)
+            return 2
+        if input(_("Delete this data? [y/N] ")).lower() not in ("y", "o"):
+            return 1
+    say(_("%d record(s) removed.") % len(store.purge_orphans()))
+    return 0
+
+
 PAM_MODULE_GLOBS = ("/usr/lib/*/security/pam_facial_auth.so", "/lib/*/security/pam_facial_auth.so",
                     "/usr/lib/security/pam_facial_auth.so")
 _LOAD_PROBE = ("import ctypes, sys\n"
@@ -387,7 +419,10 @@ def pam_module_problem(globs=PAM_MODULE_GLOBS) -> str | None:
     found = [p for pattern in globs for p in sorted(glob.glob(pattern))]
     if not found:
         return _("not installed")
-    r = subprocess.run([sys.executable, "-c", _LOAD_PROBE, found[0]], capture_output=True, text=True, timeout=30)
+    # -I: no current directory, no PYTHONPATH, no user site on the path.  Run by root from a directory
+    # somebody else can write to, "import ctypes" would otherwise load that person's ctypes.py.
+    r = subprocess.run([sys.executable, "-I", "-c", _LOAD_PROBE, found[0]], capture_output=True, text=True,
+                       timeout=30, cwd="/")
     if r.returncode == 0:
         return None
     if r.returncode < 0:
@@ -496,6 +531,10 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("fetch-models", help=_("download the face models (root)"))
     p.add_argument("--from", dest="source", metavar="DIR", help=_("install from a directory (offline)"))
     p.set_defaults(fn=None, local=cmd_fetch_models)
+    p = sub.add_parser("purge-orphans", help=_("remove face data of deleted or renamed accounts (root)"))
+    p.add_argument("-y", "--yes", action="store_true")
+    p.add_argument("-n", "--dry-run", action="store_true", help=_("only list what would be removed"))
+    p.set_defaults(fn=None, local=cmd_purge_orphans)
     p = sub.add_parser("doctor", help=_("diagnose the installation"))
     p.set_defaults(fn=None, local=cmd_doctor)
     return ap

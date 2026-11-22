@@ -26,6 +26,18 @@ class ProtocolError(ValueError):
     pass
 
 
+# Longest value accepted for each field of a request.  The daemon writes them to the journal and
+# any local user can talk to its socket: a field is one printable line of reasonable length or the
+# whole request is refused ("SKIP bad-request": the password is asked for as usual).
+FIELD_LIMITS = {"user": 256, "service": 64, "tty": 128, "rhost": 256, "ruser": 256}
+
+
+def _field(name: str, value: str) -> str:
+    if len(value) > FIELD_LIMITS[name] or not value.isprintable():
+        raise ProtocolError(f"bad {name}")
+    return value
+
+
 def enc(value: object) -> str:
     """Percent-encode like the C module (RFC 3986 unreserved set)."""
     return quote(str(value), safe="-._~")
@@ -66,12 +78,12 @@ def parse_request(line: str) -> Request:
         raise ProtocolError("bad version") from exc
     if version != PROTO_VERSION:
         raise ProtocolError(f"unsupported protocol version {version}")
-    user = fields.get("user", "")
-    if not user or any(ord(c) < 32 or c == "/" for c in user) or len(user) > 256:
+    user = _field("user", fields.get("user", ""))
+    if not user or "/" in user:
         raise ProtocolError("bad user")
-    return Request(user=user, service=fields.get("service", ""),
-                   tty=fields.get("tty", ""), rhost=fields.get("rhost", ""),
-                   ruser=fields.get("ruser", ""), version=version)
+    return Request(user=user, service=_field("service", fields.get("service", "")),
+                   tty=_field("tty", fields.get("tty", "")), rhost=_field("rhost", fields.get("rhost", "")),
+                   ruser=_field("ruser", fields.get("ruser", "")), version=version)
 
 
 def build_request(req: Request) -> str:

@@ -19,6 +19,7 @@ import logging
 import os
 import pwd
 import secrets
+import shutil
 import threading
 import time
 from dataclasses import dataclass, field
@@ -58,6 +59,14 @@ class FaceRecord:
                 "source": self.source, "samples": int(len(self.vectors))}
 
 
+@dataclass(frozen=True)
+class Orphan:
+    """Faces filed under a uid that does not (or no longer) belong to the account they were enrolled for."""
+    uid: int
+    recorded: str      # the account name the faces were enrolled for
+    current: str       # what the uid is called now; "" when no account has it (or it cannot be looked up)
+
+
 @dataclass
 class UserFaces:
     uid: int
@@ -92,6 +101,7 @@ class FaceStore:
         self._name_of = name_of
         self._owner = owner      # chown target when running as root (tests/CLI)
         self._lock = threading.RLock()
+        self._warned: set[tuple[int, str, str]] = set()
 
     # -- file helpers -----------------------------------------------------
     def _dir(self, uid: int) -> Path:
@@ -108,7 +118,12 @@ class FaceStore:
 
     # -- read -------------------------------------------------------------
     def load(self, uid: int) -> UserFaces:
-        """Never raises: a damaged file means "no faces" (fail closed)."""
+        """Never raises: a damaged file means "no faces" (fail closed).
+
+        Faces are filed under the uid but belong to the *account* they were enrolled for: when the uid
+        is now called something else (account deleted and the uid given to somebody new, account
+        renamed, user database unreachable) they are not used.  Nothing is deleted here.
+        """
         out = UserFaces(uid=int(uid), username=self._name_of(uid))
         f = self._file(uid)
         with self._lock:
@@ -116,6 +131,10 @@ class FaceStore:
                 data = json.loads(f.read_text(encoding="utf-8"))
                 if data.get("version") != FORMAT_VERSION:
                     raise ValueError(f"unsupported version {data.get('version')!r}")
+                recorded = str(data.get("username", ""))
+                if recorded and recorded != out.username:
+                    self._warn_orphan(uid, recorded, out.username)
+                    return out
                 out.enabled = bool(data.get("enabled", True))
                 for item in data.get("faces", []):
                     dim = int(item["dim"])
@@ -131,10 +150,50 @@ class FaceStore:
                         vectors=normalise(vec)))
             except FileNotFoundError:
                 pass
-            except (ValueError, KeyError, TypeError, StoreError, json.JSONDecodeError, OSError) as exc:
+            except (ValueError, KeyError, TypeError, AttributeError, StoreError, json.JSONDecodeError, OSError) as exc:
                 log.error("unreadable face data for uid %s (%s): treated as empty", uid, exc)
                 out.faces = []
         return out
+
+    def _warn_orphan(self, uid: int, recorded: str, current: str) -> None:
+        key = (int(uid), recorded, current)
+        if key not in self._warned:
+            self._warned.add(key)
+            log.warning("faces filed under uid %s were enrolled for %r, which is %s: they are not used "
+                        "('facial-auth purge-orphans' removes them)", uid, recorded,
+                        f"now called {current!r}" if current else "no longer an account")
+
+    def orphans(self) -> list[Orphan]:
+        """Every record whose recorded account name is not the name of its uid today."""
+        found: list[Orphan] = []
+        try:
+            entries = sorted((p for p in self.paths.templates.iterdir() if p.name.isdigit()),
+                             key=lambda p: int(p.name))
+        except FileNotFoundError:
+            return found
+        for d in entries:
+            try:
+                data = json.loads((d / "faces.json").read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            recorded = str(data.get("username", "")) if isinstance(data, dict) else ""
+            current = self._name_of(int(d.name))
+            if recorded and recorded != current:
+                found.append(Orphan(int(d.name), recorded, current))
+        return found
+
+    def purge_orphans(self) -> list[Orphan]:
+        """Delete the records listed by orphans() and rebuild the markers from what is left.
+
+        Only an administrator's explicit command calls this: a failed user-database lookup looks like
+        a deleted account and must never cost anybody their enrolled face.
+        """
+        with self._lock:
+            found = self.orphans()
+            for o in found:
+                shutil.rmtree(self._dir(o.uid), ignore_errors=True)
+            self.sync_markers()
+        return found
 
     def users(self) -> list[int]:
         try:

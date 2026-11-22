@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import struct
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import Callable
@@ -13,6 +15,7 @@ from . import challenge as head_turn
 from . import liveness
 from .camera import FrameSource
 from .config import Config
+from .const import MAX_IMAGE_PIXELS
 from .engine import Face, FaceEngine
 from .store import normalise
 
@@ -21,7 +24,11 @@ log = logging.getLogger(__name__)
 MIN_ENROLL_IMAGES = 3
 MAX_ENROLL_IMAGES = 12
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
-MAX_IMAGE_SIDE = 1280
+MAX_IMAGE_SIDE = 1280              # decoded images are brought down to this before any analysis
+MAX_IMAGE_DIMENSION = 16384        # width or height written in the header, whatever the pixel count
+# Decoding is the only place where the daemon, which answers PAM, parses bytes chosen by someone
+# else: at most this many images are decoded at the same time (memory is bounded by it).
+DECODE_SLOTS = 2
 # A face this much smaller than the main one is a bystander, otherwise the
 # frame is ambiguous (two people at the camera) and is not used.
 AMBIGUITY_RATIO = 0.5
@@ -255,11 +262,73 @@ class EnrollError(Exception):
         self.code, self.details = code, details or {}
 
 
+_PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+_JPEG_SIGNATURE = b"\xff\xd8\xff"
+_DECODING = threading.BoundedSemaphore(DECODE_SLOTS)
+
+
+def declared_size(data: bytes) -> tuple[int, int] | None:
+    """(width, height) written in the header of a PNG or a JPEG, read without decoding anything.
+
+    None when the data is neither, or when the header is cut short or has no frame header.
+    """
+    if data.startswith(_PNG_SIGNATURE):
+        if len(data) < 24 or data[12:16] != b"IHDR":
+            return None
+        width, height = struct.unpack(">II", data[16:24])
+        return width, height
+    if not data.startswith(_JPEG_SIGNATURE):
+        return None
+    i, n = 2, len(data)
+    while i + 4 <= n:
+        if data[i] != 0xFF:
+            return None
+        marker = data[i + 1]
+        if marker == 0xFF:                                  # fill byte
+            i += 1
+            continue
+        if marker == 0x01 or 0xD0 <= marker <= 0xD9:        # TEM, RSTn, SOI, EOI: no length field
+            i += 2
+            continue
+        (length,) = struct.unpack(">H", data[i + 2:i + 4])
+        if length < 2:
+            return None
+        if 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xC8, 0xCC):    # SOFn: the frame header
+            if length < 8 or i + 9 > n:
+                return None
+            height, width = struct.unpack(">HH", data[i + 5:i + 9])
+            return width, height
+        if marker == 0xDA:                                  # start of scan with no frame header before it
+            return None
+        i += 2 + length
+    return None
+
+
 def decode_image(data: bytes, max_side: int = MAX_IMAGE_SIDE) -> np.ndarray:
+    """A BGR picture from JPEG or PNG bytes that somebody else chose.
+
+    Everything else is refused *before* OpenCV sees it.  The OpenCV of Ubuntu decodes a dozen more
+    formats, among them ones handed to GDAL, GDCM, OpenEXR or OpenJPEG: parsers that were never
+    meant to read hostile files in the process that answers PAM, and some of which leak descriptors
+    or temporary files on malformed input.
+    """
     import cv2
     if not data or len(data) > MAX_IMAGE_BYTES:
         raise ValueError("image missing or larger than 8 MiB")
-    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+    if not (data.startswith(_JPEG_SIGNATURE) or data.startswith(_PNG_SIGNATURE)):
+        raise ValueError("unsupported image format: only JPEG and PNG are accepted")
+    size = declared_size(data)
+    if size is None or 0 in size:
+        raise ValueError("not a readable image")
+    width, height = size
+    if width * height > MAX_IMAGE_PIXELS or max(width, height) > MAX_IMAGE_DIMENSION:
+        raise ValueError(f"image too large ({width}x{height}): at most {MAX_IMAGE_PIXELS // 10**6} "
+                         "megapixels")
+    with _DECODING:
+        try:
+            img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+        except (cv2.error, MemoryError, OverflowError) as exc:
+            raise ValueError("not a readable image") from exc
     if img is None:
         raise ValueError("not a readable image")
     h, w = img.shape[:2]
