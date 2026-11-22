@@ -91,3 +91,23 @@ def test_without_a_daemon_the_error_is_actionable(env):
     p = subprocess.run(["/usr/bin/python3.12", "-m", "facial_auth.cli", "status"], capture_output=True,
                        text=True, env=e, timeout=30)
     assert p.returncode != 0
+
+
+# --------------------------------------------------------------------- the head-turn wording
+def test_the_head_turn_texts_name_the_side_that_comes_next():
+    from facial_auth.cli import challenge_text, turned_text
+    assert "left" in challenge_text("lr").split("then")[0] and "right" in challenge_text("rl").split("then")[0]
+    assert "right" in turned_text("lr:1") and "left" in turned_text("rl:1")
+    assert "straight" in turned_text("lr:2") and "straight" in turned_text("rl:2")
+
+
+def test_the_advice_after_a_failed_head_turn_follows_the_hint_and_never_blames_a_success():
+    from facial_auth.cli import head_turn_advice
+    measures = "hint=too-little, peak=0.0120, points=80, reason=challenge-timeout, sequence=lr, shape=0.0100, steps=0"
+    assert "far enough" in head_turn_advice(measures)
+    assert "mirror" in head_turn_advice(measures.replace("too-little", "wrong-way"))
+    assert "second" in head_turn_advice(measures.replace("too-little", "second-turn"))
+    assert "pause" in head_turn_advice(measures.replace("too-little", "too-fast"))
+    assert "stricter" in head_turn_advice(measures.replace("too-little", "final-match"))
+    assert head_turn_advice("hint=, peak=0.05, steps=2") == ""
+    assert head_turn_advice("") == ""

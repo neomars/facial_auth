@@ -11,6 +11,7 @@ import pwd
 import re
 import socket
 import subprocess
+import sys
 import threading
 import time
 from pathlib import Path
@@ -26,12 +27,19 @@ from facial_auth.store import FaceStore
 from .fakes import template
 from .synth3d import Scene, SceneCamera, SceneEngine, head_turns, tilted_sheet
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "pam"))
+from test_sudo_pty import Pty  # noqa: E402
+
 pytestmark = pytest.mark.skipif(os.geteuid() != 0, reason="needs root (PAM service, users)")
 
 USER, PASSWORD = "faE2eHT", "pw-e2e-ht"
 SERVICES = {"fa-e2e-ht": "sequential", "fa-e2e-ht-par": "parallel-tty"}
-LR = "Slowly turn your head to your left, then to your right, then look at the screen."
-RL = "Slowly turn your head to your right, then to your left, then look at the screen."
+LR = "Turn your head clearly to your left, then to your right, then look at the screen."
+RL = "Turn your head clearly to your right, then to your left, then look at the screen."
+NEXT_RIGHT = "Good. Now turn your head clearly to your right."
+LOOK = "Good. Now look straight at the screen."
+NOT_COMPLETED = "Head-turn test not completed."
+FAILED = "Head-turn test failed."
 
 
 class Env:
@@ -116,6 +124,25 @@ def pam(env, service, *args, timeout=60):
     return proc.returncode, ev
 
 
+def pam_pty(env, service, *args, timeout=60):
+    """Same, on a pseudo-terminal: what the module writes below a pending password prompt (the head-turn
+    instructions) is only visible there.  Returns (rc, events, what the person was shown)."""
+    p = Pty([str(env.pamtest), *args, service, USER],
+            env={"PATH": os.environ["PATH"], "LANGUAGE": "C", "LC_ALL": "C", "TERM": "dumb", "HOME": "/tmp"})
+    rc = p.wait(timeout)
+    lines = p.buf.replace("\r", "").splitlines()
+    ev = [(m.group(1), int(m.group(2)), m.group(3)) for m in
+          (re.match(r"^(\S+) (-?\d+) ?(.*)$", ln) for ln in lines) if m]
+    said = []
+    for ln in lines:
+        m = re.match(r"^INFO -?\d+ ?(.*)$", ln)
+        if m:
+            said.append(m.group(1))
+        elif ln.strip() and not re.match(r"^(PROMPT|ANSWER|RESULT|END|CONV-CANCELLED|LATE-ANSWER) ", ln):
+            said.append(ln.strip())
+    return rc, ev, said
+
+
 def infos(ev):
     return [e[2] for e in ev if e[0] == "INFO"]
 
@@ -135,7 +162,8 @@ def test_a_head_turning_as_asked_logs_in_without_any_password(env):
     rc, ev = pam(env, "fa-e2e-ht")
     assert rc == 0 and count(ev, "PROMPT") == 0, ev
     shown = infos(ev)
-    assert shown.index("Looking for your face...") < shown.index(LR), shown
+    assert shown.index("Looking for your face...") < shown.index(LR) < shown.index(NEXT_RIGHT) < shown.index(LOOK), \
+        "the instruction, then each turn that the daemon saw, in order"
     assert env.cameras and env.cameras[0].i > 20, "the head turn was played"
 
 
@@ -149,7 +177,7 @@ def test_a_photograph_never_logs_in_and_the_password_still_works(env):
     watch(env, Scene("flat", seed=11), tilted_sheet(0))
     rc, ev = pam(env, "fa-e2e-ht", "--answer", f"0:{PASSWORD}")
     assert rc == 0 and count(ev, "PROMPT") == 1, "the face did not open the session: the password did"
-    assert LR in infos(ev) and infos(ev)[-1] == "Face not recognized.", ev
+    assert LR in infos(ev) and infos(ev)[-1] in (NOT_COMPLETED, FAILED), ev
 
 
 def test_a_photograph_with_the_wrong_password_is_refused(env):
@@ -178,18 +206,28 @@ def test_failed_head_turns_lock_the_face_path_out_but_never_the_password(env):
 
 
 # ------------------------------------------------------ sudo / su on a terminal: parallel-tty
-def test_in_a_terminal_the_pending_prompt_gives_way_to_the_instruction_then_the_face_wins(env):
+def test_in_a_terminal_the_instruction_goes_below_the_open_prompt_then_the_face_wins(env):
     watch(env, Scene("head", seed=6), head_turns(+1))
-    rc, ev = pam(env, "fa-e2e-ht-par", "--post-sleep", "200")
-    assert rc == 0, ev
-    assert count(ev, "PROMPT") == 1 and count(ev, "CONV-CANCELLED") == 1
-    shown = infos(ev)
-    assert LR in shown and "Face recognized." in shown and shown.index(LR) < shown.index("Face recognized.")
+    rc, ev, said = pam_pty(env, "fa-e2e-ht-par", "--post-sleep", "200")
+    assert rc == 0, said
+    assert count(ev, "PROMPT") == 1, "the password prompt is never replaced: the password can be typed at any time"
+    assert count(ev, "CONV-CANCELLED") == 1, "it is only taken away once the face has won"
+    assert said.index(LR) < said.index(NEXT_RIGHT) < said.index(LOOK) < said.index("Face recognized.")
 
 
-def test_in_a_terminal_a_photograph_leaves_a_fresh_password_prompt(env):
+def test_in_a_terminal_a_photograph_says_so_and_the_same_prompt_takes_the_password(env):
     watch(env, Scene("flat", seed=14), tilted_sheet(3))
-    rc, ev = pam(env, "fa-e2e-ht-par", "--answer", "30000:never-typed", "--answer", f"0:{PASSWORD}")
-    assert rc == 0, ev
-    assert count(ev, "CONV-CANCELLED") == 1 and count(ev, "PROMPT") == 2
-    assert infos(ev)[-2:] == [LR, "Face not recognized."]
+    rc, ev, said = pam_pty(env, "fa-e2e-ht-par", "--answer", f"11000:{PASSWORD}")
+    assert rc == 0, said
+    assert count(ev, "PROMPT") == 1 and count(ev, "CONV-CANCELLED") == 0
+    assert LR in said and (NOT_COMPLETED in said or FAILED in said), said
+    assert said.index(LR) < min(said.index(w) for w in (NOT_COMPLETED, FAILED) if w in said)
+
+
+def test_in_a_terminal_typing_the_password_during_the_head_turn_ends_it_at_once(env):
+    watch(env, Scene("flat", seed=15), tilted_sheet(4))
+    t0 = time.monotonic()
+    rc, ev, said = pam_pty(env, "fa-e2e-ht-par", "--answer", f"1500:{PASSWORD}")
+    assert rc == 0, said
+    assert time.monotonic() - t0 < 6, "the 8 s head turn did not hold the password back"
+    assert LR in said

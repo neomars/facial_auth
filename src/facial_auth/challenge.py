@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Active liveness: "turn your head slowly", judged on 3-D parallax.
+"""Active liveness: "turn your head clearly", judged on 3-D parallax.
 
 Why this and not "blink" or "does the picture move": a photograph held in front of the camera
 can be tilted, moved, rotated and bent by hand, and every rigid motion of a *flat* surface is a
@@ -19,7 +19,9 @@ then towards their right - in an order drawn at random - and look at the screen 
 The same identity must be present all along and at the end, so a swap cannot be slipped in.
 
 Measured on real portraits through the real face detector (see docs/SECURITY.md): a flat sheet
-moved at will gives |rho| below 0.02, a head turned by 15-25 degrees gives 0.04-0.06.
+moved at will gives |rho| around 0.005 (rarely above 0.02), a head turned by 15-25 degrees gives
+0.03-0.06 and one turned by less than 10 degrees does not reach the threshold at all: the person
+has to turn *clearly*.
 
 What it does not stop: a recorded video of the right head movements played in front of a
 colour camera (an infrared camera does not see a screen), a sheet folded into a real nose,
@@ -53,11 +55,13 @@ FORWARD_BACKWARD_PX = 1.0
 
 @dataclass(frozen=True)
 class Params:
-    turn: float = 0.025          # |rho| that counts as "turned"
+    turn: float = 0.020          # |rho| that counts as "turned"
     hold: int = 3                # consecutive frames beyond `turn`
-    timeout: float = 8.0         # seconds for the whole challenge
+    timeout: float = 12.0        # seconds for the whole challenge (reading the instruction included)
     mirror: bool = False         # camera image already mirrored (rare)
-    flat_motion: float = 0.03    # shape change that proves the surface was rotated ...
+    flat_motion: float = 0.06    # shape change that proves a *picture* was rotated (a head turned by
+                                 # 18 degrees changes the shape of its inner plane by less than 0.05, a
+                                 # sheet tilted by hand by more than 0.07) ...
                                  # ... while rho never reached `turn`: nothing stuck out
     swap_similarity: float = 0.15    # a frame this unlike the account = somebody else
     swap_frames: int = 3
@@ -69,12 +73,15 @@ class Params:
 @dataclass
 class State:
     verdict: str = "pending"     # pending | passed | failed
-    reason: str = ""             # challenge-timeout | flat-surface | identity-changed | lost-face | no-texture
+    reason: str = ""             # challenge-timeout | final-match | flat-surface | identity-changed | lost-face
+                                 # | no-texture
     step: int = 0
     phase: str = "turn"          # turn | back
     rho: float = float("nan")
     points: int = 0
     peak: float = 0.0            # largest |rho| seen
+    first_sign: int = 0          # side of the first turn that reached the bar (+1: the user's left)
+    wanted_first: int = 0        # side that was asked first
     shape_change: float = 0.0
     log: list = field(default_factory=list)
 
@@ -213,7 +220,7 @@ class HeadTurn:
         if sequence not in SEQUENCES:
             raise ValueError(sequence)
         self.p, self.sequence, self.steps = params, sequence, SEQUENCES[sequence]
-        self.state = State()
+        self.state = State(wanted_first=self.steps[0])
         self._tracker: Tracker | None = None
         self._start = start
         self._streak = 0            # consecutive frames beyond the threshold in the current direction
@@ -288,6 +295,8 @@ class HeadTurn:
         rho = float(np.median(self._recent))
         st.rho = rho
         st.peak = max(st.peak, abs(rho))
+        if not st.first_sign and abs(rho) >= self.p.turn:
+            st.first_sign = 1 if rho > 0 else -1
         st.log.append((round(now - self._start, 2), round(rho, 4), round(shape, 4), n))
 
         # --- state machine: turn towards the requested side, then the other one ---------
@@ -313,4 +322,7 @@ class HeadTurn:
         # rotated a lot (the plane changed shape) yet nothing ever stuck out: a flat picture
         if st.shape_change >= self.p.flat_motion and st.peak < self.p.turn:
             return self._fail("flat-surface")
+        # both turns were made, but the person was not recognised again looking ahead
+        if st.phase == "back":
+            return self._fail("final-match")
         return self._fail("challenge-timeout")

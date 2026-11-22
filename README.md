@@ -113,10 +113,13 @@ biométriques et les modèles.
 * **Parallèle** : l'invite « Mot de passe » reste affichée pendant le scan ; le
   premier des deux qui aboutit gagne. Valider un mot de passe **vide** relance
   un scan (« réessayer avec mon visage »). `Ctrl-C` abandonne immédiatement.
-* **Défi de tête** (par défaut) : une fois le visage reconnu, l'instruction « Tournez lentement la tête
-  vers votre gauche, puis vers votre droite, puis regardez l'écran » s'affiche (l'ordre est tiré au hasard) ;
-  une photo, plane, ne peut pas la suivre. En mode parallèle l'invite en attente est retirée le temps du
-  défi ; en cas d'échec le mot de passe est redemandé. Voir [`docs/SECURITY.md`](docs/SECURITY.md).
+* **Défi de tête** (par défaut) : une fois le visage reconnu, l'instruction « Tournez nettement la tête
+  vers votre gauche, puis vers votre droite, puis regardez l'écran » s'affiche (l'ordre est tiré au hasard)
+  et chaque mouvement vu est confirmé ; une photo, plane, ne peut pas la suivre. **Tournez franchement**
+  (15 à 20° de chaque côté, comme pour regarder le bord de l'écran) : un mouvement léger ne passe pas.
+  En terminal, l'invite du mot de passe reste ouverte pendant tout le défi (on peut taper le mot de passe
+  à tout moment) ; ailleurs, un échec redonne la main au mot de passe. Si le défi vous refuse,
+  `facial-auth test` dit quoi changer : voir [`docs/SECURITY.md`](docs/SECURITY.md).
 * Une **webcam couleur est trompée par une photo affichée sur un téléphone** : par défaut aucun service
   ne l'accepte. Autoriser « toute caméra » pour un service est un choix assumé (application, ou
   `sudo facial-auth service NOM any`).
@@ -131,7 +134,7 @@ valeurs par défaut : `/usr/share/facial-auth/defaults.conf`).
 
 ## Ce qui a été vérifié — et ce qui ne l'a pas été
 
-Vérifié dans un conteneur Ubuntu 24.04 (396 tests automatisés, plus le parcours graphique sous Xvfb) :
+Vérifié dans un conteneur Ubuntu 24.04 (419 tests automatisés, plus le parcours graphique sous Xvfb) :
 
 * module PAM en C contre le **vrai `pam_unix`**, le **vrai `sudo`** et le **vrai `su`**
   sur un pseudo-terminal : le visage gagne pendant l'invite, mot de passe saisi en

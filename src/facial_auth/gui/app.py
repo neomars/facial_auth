@@ -299,10 +299,16 @@ class Window(Adw.ApplicationWindow):
         self.client.call_async("VerifyInfrared", "", (), done, 120000)
 
     def _test(self, user: str) -> None:
-        from ..cli import challenge_text
+        from ..cli import challenge_text, head_turn_advice, turned_text
+
+        def progress(phase: str, detail: str) -> None:
+            if phase == "challenge":
+                self.toast(challenge_text(detail))
+            elif phase == "turned":
+                self.toast(turned_text(detail))
+
         self.toast(_("Look at the camera..."))
-        sub = self.client.subscribe("RecognitionProgress",
-                                    lambda phase, detail: self.toast(challenge_text(detail)) if phase == "challenge" else None)
+        sub = self.client.subscribe("RecognitionProgress", progress)
 
         def done(out, err):
             self.client.conn.signal_unsubscribe(sub)
@@ -310,6 +316,10 @@ class Window(Adw.ApplicationWindow):
                 self.toast(format_error(err))
                 return
             r = out[0]
+            advice = "" if r["ok"] or not r.get("head_turn") else head_turn_advice(r["head_turn"])
+            if advice:      # a toast is too short to read what to change
+                self.alert(_("Not recognised (%s)") % r["reason"], advice)
+                return
             self.toast(_("Recognised (similarity %.2f)") % r["score"] if r["ok"]
                        else _("Not recognised (%s)") % r["reason"])
         self.client.call_async("TestRecognition", "ss", (user, ""), done, 120000)

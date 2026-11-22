@@ -87,6 +87,7 @@ struct reply {
     char reason[48];
     char phase[24];
     char seq[8];
+    int step;
     double timeout;
     double score;
 };
@@ -128,6 +129,45 @@ static void info(pam_handle_t *pamh, const struct options *o, const char *msg)
         (void)pam_info(pamh, "%s", msg);
 }
 
+/* A terminal frontend keeps its password prompt open while the camera works: the conversation is
+ * not re-entrant, so this thread cannot use it.  The text goes straight to the terminal, on the
+ * line below the prompt.  Nothing else changes: the password can still be typed (unseen, the
+ * frontend owns the terminal modes) and wins, exactly as it does during the plain face scan. */
+static void tty_say(int fd, const char *msg)
+{
+    char buf[1024];
+    size_t off = 0;
+    int n = snprintf(buf, sizeof buf, "\r\n%s\r\n", msg);
+
+    if (fd < 0 || n <= 0)
+        return;
+    if ((size_t)n >= sizeof buf)
+        n = (int)sizeof buf - 1;
+    while (off < (size_t)n) {
+        ssize_t w = write(fd, buf + off, (size_t)n - off);
+
+        if (w < 0) {
+            if (errno == EINTR)
+                continue;
+            return; /* EAGAIN (terminal stopped) or gone: the message is not worth waiting for */
+        }
+        off += (size_t)w;
+    }
+}
+
+/* Say something to the person while the scan runs: through the terminal when a password prompt is
+ * pending in it, through the conversation otherwise. */
+static void tell(pam_handle_t *pamh, const struct options *o, int ttyfd, bool prompt_pending,
+                 const char *msg)
+{
+    if (o->quiet)
+        return;
+    if (prompt_pending)
+        tty_say(ttyfd, msg);
+    else
+        info(pamh, o, msg);
+}
+
 /* The head-turn test (docs/PROTOCOL.md): "left" and "right" are the user's own.  The daemon only
  * sends a code ("lr" / "rl"), the wording and its translation live here. */
 static bool is_challenge(const struct reply *r)
@@ -138,8 +178,34 @@ static bool is_challenge(const struct reply *r)
 static const char *challenge_text(const struct reply *r)
 {
     if (!strcmp(r->seq, "rl"))
-        return _("Slowly turn your head to your right, then to your left, then look at the screen.");
-    return _("Slowly turn your head to your left, then to your right, then look at the screen.");
+        return _("Turn your head clearly to your right, then to your left, then look at the screen.");
+    return _("Turn your head clearly to your left, then to your right, then look at the screen.");
+}
+
+/* "turned": the daemon saw a turn.  Telling the person lets them pace themselves and shows, when it
+ * never comes, that the movement was too small (docs/PROTOCOL.md). */
+static bool is_turned(const struct reply *r)
+{
+    return r->kind == REPLY_STATE && !strcmp(r->phase, "turned") && r->step >= 1 && r->step <= 2;
+}
+
+static const char *step_text(const struct reply *r)
+{
+    if (r->step == 1)
+        return !strcmp(r->seq, "rl") ? _("Good. Now turn your head clearly to your left.")
+                                     : _("Good. Now turn your head clearly to your right.");
+    return _("Good. Now look straight at the screen.");
+}
+
+/* Why the face did not open the session.  The head-turn wording is only used when the person was
+ * actually asked to turn their head ("spoof" also covers a frozen camera feed). */
+static const char *failure_text(const char *reason, bool head_turn_asked)
+{
+    if (head_turn_asked && !strcmp(reason, "challenge"))
+        return _("Head-turn test not completed.");
+    if (head_turn_asked && !strcmp(reason, "spoof"))
+        return _("Head-turn test failed.");
+    return _("Face not recognized.");
 }
 
 /* RFC 3986 percent-encoding; the caller frees the result. */
@@ -341,6 +407,8 @@ static void parse_reply(const char *line, struct reply *r)
             snprintf(r->phase, sizeof r->phase, "%s", eq);
         else if (!strcmp(tok, "seq"))
             snprintf(r->seq, sizeof r->seq, "%s", eq);
+        else if (!strcmp(tok, "step"))
+            r->step = (atoi(eq) >= 0 && atoi(eq) <= 9) ? atoi(eq) : 0;
         else if (!strcmp(tok, "timeout"))
             r->timeout = atof(eq);
         else if (!strcmp(tok, "score"))
@@ -632,6 +700,9 @@ static enum round_result run_sequential(pam_handle_t *pamh,
 {
     char line[MAX_LINE];
     double deadline = mono_now() + scan_timeout + SCAN_SLACK_SECONDS;
+    char fail_reason[sizeof ((struct reply *)0)->reason] = "";
+    bool asked = false;
+    int shown = 0;
 
     info(pamh, o, _("Looking for your face..."));
     for (;;) {
@@ -651,15 +722,22 @@ static enum round_result run_sequential(pam_handle_t *pamh,
         }
         if (r.kind == REPLY_FAIL) {
             DBG(pamh, o, "face scan failed: %s", r.reason);
+            snprintf(fail_reason, sizeof fail_reason, "%s", r.reason);
             break;
         }
         if (is_challenge(&r)) {
+            asked = true;
             info(pamh, o, challenge_text(&r));
             if (r.timeout > 0.0)  /* the head turn has its own, shorter clock */
                 deadline = mono_now() + sane_timeout(r.timeout) + SCAN_SLACK_SECONDS;
+        } else if (is_turned(&r) && asked && r.step > shown) {
+            shown = r.step;
+            info(pamh, o, step_text(&r));
         }
     }
-    info(pamh, o, _("Face not recognized."));
+    if (asked && !fail_reason[0])  /* the daemon went silent or vanished during the head turn */
+        snprintf(fail_reason, sizeof fail_reason, "challenge");
+    info(pamh, o, failure_text(fail_reason, asked));
     return ROUND_NONE;
 }
 
@@ -677,9 +755,10 @@ static enum round_result run_parallel(pam_handle_t *pamh,
     bool face_pending = true, face_ok = false;
     bool prompt_active = true, got_answer = false, aborted = false;
     bool masked = false;
-    /* The head-turn test needs the conversation for itself (terminal frontends only): the pending
-     * password prompt was cancelled for it, nobody else is inside the conversation any more. */
-    bool conv_free = false, challenge_shown = false;
+    /* The head-turn test (terminal frontends only): its instructions are written to the terminal
+     * below the password prompt, which stays open (see tty_say()). */
+    bool challenge_shown = false;
+    int steps_shown = 0;
     double deadline;
     enum round_result res = ROUND_NONE;
 
@@ -688,7 +767,7 @@ static enum round_result run_parallel(pam_handle_t *pamh,
             DBG(pamh, o, "libgcc_s unavailable: falling back to sequential");
             return run_sequential(pamh, o, rd, scan_timeout, score);
         }
-        ttyfd = open("/dev/tty", O_RDWR | O_NOCTTY | O_CLOEXEC);
+        ttyfd = open("/dev/tty", O_RDWR | O_NOCTTY | O_NONBLOCK | O_CLOEXEC);
         if (ttyfd >= 0 && tcgetattr(ttyfd, &tio) == 0)
             have_tio = true;
     }
@@ -754,6 +833,8 @@ static enum round_result run_parallel(pam_handle_t *pamh,
                 face_pending = false;
                 close(rd->fd);
                 rd->fd = -1;
+                if (challenge_shown)
+                    tell(pamh, o, ttyfd, prompt_active, failure_text("challenge", true));
             } else {
                 timeout_ms = (int)(left * 1000.0) + 1;
             }
@@ -775,39 +856,26 @@ static enum round_result run_parallel(pam_handle_t *pamh,
                 face_pending = false;
                 close(rd->fd);
                 rd->fd = -1;
-            } else if (is_challenge(&r) && cancel_prompt && !challenge_shown && p) {
-                /* Same gesture as for a recognised face: take the pending password prompt away,
-                 * restore the terminal, then talk.  A graphical frontend (no cancel) cannot be
-                 * interrupted: the daemon never asks it for a head turn. */
-                if (prompt_active) {
-                    conv_free = prompter_stop(p, true);
-                    p = NULL; /* destroyed, or left to free itself: not ours any more */
-                    if (ttyfd >= 0) {
-                        if (have_tio)
-                            tcsetattr(ttyfd, TCSAFLUSH, &tio); /* drops half-typed input */
-                        (void)!write(ttyfd, "\n", 1);
-                    }
-                    prompt_active = false;
-                    if (masked) {
-                        pthread_sigmask(SIG_SETMASK, &saved, NULL);
-                        masked = false;
-                    }
-                } else {
-                    conv_free = true; /* the prompt thread already ended: nobody is in the conversation */
-                }
+                if (challenge_shown)
+                    tell(pamh, o, ttyfd, prompt_active, failure_text(r.reason, true));
+            } else if (is_challenge(&r) && cancel_prompt && !challenge_shown) {
                 challenge_shown = true;
-                if (conv_free)
-                    info(pamh, o, challenge_text(&r));
-                /* No password prompt is visible any more: do not wait for a silent daemon longer
-                 * than the head turn can last. */
+                tell(pamh, o, ttyfd, prompt_active, challenge_text(&r));
+                /* The head turn has its own clock: do not wait for a silent daemon longer than it
+                 * can last, however much of the scan budget was left. */
                 if (r.timeout > 0.0)
                     deadline = mono_now() + sane_timeout(r.timeout) + SCAN_SLACK_SECONDS;
+            } else if (is_turned(&r) && challenge_shown && r.step > steps_shown) {
+                steps_shown = r.step;
+                tell(pamh, o, ttyfd, prompt_active, step_text(&r));
             }
         } else if (rc < 0 && face_pending) {
             /* daemon vanished: only the password remains */
             face_pending = false;
             close(rd->fd);
             rd->fd = -1;
+            if (challenge_shown)
+                tell(pamh, o, ttyfd, prompt_active, failure_text("challenge", true));
         } else if (rc == 2) {
             char drain[8];
 
@@ -820,7 +888,7 @@ static enum round_result run_parallel(pam_handle_t *pamh,
 
     if (face_ok) {
         /* The face won (also when the password finished at the same time). */
-        bool gone = conv_free;
+        bool gone = false;
 
         if (p) {
             gone = prompter_stop(p, cancel_prompt);
@@ -859,8 +927,6 @@ static enum round_result run_parallel(pam_handle_t *pamh,
     }
     if (p)
         prompter_stop(p, cancel_prompt);
-    if (conv_free)
-        info(pamh, o, _("Face not recognized.")); /* the head-turn test failed: the password follows */
 
 out:
     if (ttyfd >= 0)
