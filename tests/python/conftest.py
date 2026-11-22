@@ -27,9 +27,15 @@ USER = "fadbus"
 class Polkit:
     def __init__(self):
         self.grants, self.asked, self.unavailable = set(), [], None
+        self.interactive = []                      # whether the caller allowed polkit to ask for a password
+        self.hold = None                           # an Event: checks wait for it (a person typing a password)
 
     def check(self, sender, action):
+        from facial_auth.dbus_service import call_is_interactive
         self.asked.append(action)
+        self.interactive.append(call_is_interactive())
+        if self.hold is not None:
+            self.hold.wait(30)
         if self.unavailable:                      # polkit cannot be asked at all
             from facial_auth.dbus_service import PolkitUnavailable
             raise PolkitUnavailable(self.unavailable)

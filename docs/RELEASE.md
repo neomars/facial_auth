@@ -94,6 +94,16 @@ sha256sum -c --ignore-missing SHA256SUMS
 sudo apt install ./facial-auth_0.2.0_amd64.deb ./facial-auth-gtk_0.2.0_all.deb
 ```
 
+`SHA256SUMS` est déposé par le même travail, sur la même release, que les paquets : il détecte un
+téléchargement corrompu, pas une release modifiée par quelqu'un qui contrôlerait le compte du
+mainteneur. **À faire** (l'audit de novembre 2026 l'a relevé, voir `docs/SECURITY.md`) :
+
+* signer `SHA256SUMS` (GPG, minisign ou Sigstore) et publier l'empreinte de la clé dans le README ;
+* produire une attestation de provenance (`actions/attest-build-provenance`), vérifiable avec
+  `gh attestation verify` ;
+* épingler `actions/checkout`, `upload-artifact` et `download-artifact` par empreinte de commit
+  (`gh api repos/actions/checkout/commits/v4 --jq .sha`, puis laisser Dependabot les tenir à jour).
+
 ## Essayer sans publier de vraie version
 
 * ouvrir une pull request : les jobs *Compiler* et *Vérifier* tournent ;

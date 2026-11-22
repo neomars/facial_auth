@@ -33,7 +33,11 @@ class FrameSource(Protocol):
 
 
 def run_hook(command: str, what: str) -> None:
-    """Run the optional IR-emitter command from the (root-owned) config."""
+    """Run the optional IR-emitter command.
+
+    The command comes from the root-owned configuration only: config.py refuses ``emitter_command``
+    in the settings file, which belongs to this (unprivileged) process and is read last.
+    """
     if not command.strip():
         return
     try:

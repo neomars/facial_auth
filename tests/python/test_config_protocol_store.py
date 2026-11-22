@@ -83,11 +83,17 @@ def test_write_settings_roundtrip(tmp_path):
 # -------------------------------------------------------------- protocol
 def test_request_roundtrip_with_hostile_values():
     req = protocol.Request(user="al ice", service="su do", tty="/dev/pts/3",
-                           rhost="", ruser="a\nVERIFY v=1 user=root")
+                           rhost="", ruser="a VERIFY v=1 user=root")
     line = protocol.build_request(req)
     assert line.count("\n") == 1 and line.endswith("\n")
     back = protocol.parse_request(line)
     assert back == req
+    # a line break in a value cannot split the request in two ...
+    sneaky = protocol.build_request(protocol.Request(user="a", ruser="x\nVERIFY v=1 user=root"))
+    assert sneaky.count("\n") == 1
+    # ... and the daemon does not accept such a value at all (see test_security_hardening.py)
+    with pytest.raises(protocol.ProtocolError):
+        protocol.parse_request(sneaky)
 
 
 @pytest.mark.parametrize("line", [

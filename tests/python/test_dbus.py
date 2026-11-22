@@ -174,6 +174,12 @@ def test_configuration_needs_admin_and_is_validated(env):
     assert cfg["recognition"]["threshold"] == 0.6 and cfg["services"]["sudo"] == "any"
     assert fails(env, "SetConfig", ({"recognition.threshold": GLib.Variant("d", 0.01)},), "a{sv}").endswith("BadArgument")
     assert fails(env, "SetConfig", ({"camera.emitter_command": GLib.Variant("s", "id")},), "a{sv}").endswith("BadArgument")
+    # a service *name* made of several lines used to add sections of its own to settings.conf
+    hostile = "x = 1\n[security]\nallow_root = true\n[camera]\nemitter_command = /usr/bin/id\ny"
+    assert fails(env, "SetConfig", ({f"services.{hostile}": GLib.Variant("s", "off")},), "a{sv}").endswith("BadArgument")
+    text = env.core.paths.settings.read_text()
+    assert "allow_root" not in text and "emitter_command" not in text
+    assert env.core.cfg["security", "allow_root"] is False and env.core.cfg["camera", "emitter_command"] == ""
     env.core.paths.settings.unlink()
     env.core.reload()
 
@@ -182,15 +188,15 @@ def test_recognition_test_for_the_owner(env):
     env.polkit.grants = {ACTION_MANAGE}
     call(env, "AddFace", (USER, "me", photos(1), "rgb", "camera"), "ssaayss")
     env.service.caller_uid = lambda sender: env.uid
-    env.polkit.grants, env.polkit.asked = set(), []
+    env.polkit.grants, env.polkit.asked = {ACTION_CAMERA}, []
     (res,) = call(env, "TestRecognition", (USER, ""), "ss")
     assert res["ok"] is True and res["camera_class"] == "rgb"
     env.scene["identity"] = 5
     (res,) = call(env, "TestRecognition", (USER, ""), "ss", timeout=60000)
     assert res["ok"] is False and res["reason"] in ("mismatch", "no-face")
-    assert env.polkit.asked == [], "testing one's own account needs no admin"
+    assert ACTION_MANAGE not in env.polkit.asked, "testing one's own account needs no admin"
     env.service.caller_uid = lambda sender: 0
-    env.polkit.grants = {ACTION_MANAGE}
+    env.polkit.grants = {ACTION_MANAGE, ACTION_CAMERA}
     call(env, "ClearFaces", (USER,), "s")
     assert fails(env, "TestRecognition", (USER, ""), "ss").endswith("NotEnrolled")
 

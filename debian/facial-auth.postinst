@@ -12,7 +12,7 @@ configure)
     # A module that fails this test is left out, and removed if it was already in.
     module="$(ls /usr/lib/*/security/pam_facial_auth.so 2>/dev/null | head -n 1 || true)"
     module_loads=no
-    if [ -n "$module" ] && python3 -c '
+    if [ -n "$module" ] && python3 -I -c '
 import ctypes, sys
 lib = ctypes.CDLL(sys.argv[1])
 lib.pam_sm_authenticate, lib.pam_sm_setcred' "$module" >/dev/null 2>&1; then

@@ -5,7 +5,7 @@ Authorization is done with polkit:
 
 * ``manage-faces``  - link/unlink a face to *another* account (administrator)
 * ``configure``     - change daemon settings (administrator)
-* ``use-camera``    - camera preview / analysis (active local session)
+* ``use-camera``    - camera preview / analysis / recognition test (active local session)
 
 A user may always look at, test, disable or remove *their own* faces, but only
 an administrator can link a new face to an account: that is the step that
@@ -14,6 +14,7 @@ are never broadcast as signals, so another bus client cannot eavesdrop.
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import threading
@@ -33,6 +34,31 @@ from .core import ApiError, Core
 log = logging.getLogger(__name__)
 
 PREVIEW_IDLE_SECONDS = 15.0
+# One caller can have this many requests waiting for polkit (an administrator typing a password) at
+# the same time: more would let a single process hold every worker thread for ten minutes.
+MAX_PENDING_AUTHORIZATIONS = 2
+# Calls that need no authorization and answer at once get workers of their own, so that they are
+# never queued behind requests that wait for somebody to type a password.
+FAST_METHODS = frozenset({"GetStatus", "ListCameras", "ListUsers", "GetConfig"})
+GENERIC_INTERNAL_ERROR = "internal error (the details are in the journal of facial-authd)"
+
+# What the caller of the request being served by this thread allowed (see _on_call).
+_CALL = threading.local()
+
+
+def call_is_interactive() -> bool:
+    """May polkit ask the person behind the request being served to authenticate?  True outside a request."""
+    return getattr(_CALL, "interactive", True)
+
+
+@contextlib.contextmanager
+def serving(interactive: bool):
+    previous = getattr(_CALL, "interactive", True)
+    _CALL.interactive = interactive
+    try:
+        yield
+    finally:
+        _CALL.interactive = previous
 
 INTROSPECTION = f"""
 <node>
@@ -118,9 +144,13 @@ class PolkitAuthorizer:
         self.conn = conn
 
     def check(self, sender: str, action: str) -> bool:
+        # polkit may pop up a password dialog on the caller's desktop only when the caller said it
+        # accepts one (D-Bus flag ALLOW_INTERACTIVE_AUTHORIZATION): any other process asking would
+        # otherwise be able to put authentication prompts in front of somebody at will.
+        flags = 1 if call_is_interactive() else 0          # CheckAuthorizationFlags: AllowUserInteraction
         try:
             subject = ("system-bus-name", {"name": GLib.Variant("s", sender)})
-            args = GLib.Variant("((sa{sv})sa{ss}us)", (subject, action, {}, 1, ""))
+            args = GLib.Variant("((sa{sv})sa{ss}us)", (subject, action, {}, flags, ""))
             res = self.conn.call_sync(
                 "org.freedesktop.PolicyKit1", "/org/freedesktop/PolicyKit1/Authority",
                 "org.freedesktop.PolicyKit1.Authority", "CheckAuthorization", args,
@@ -171,6 +201,9 @@ class DBusService:
         self._on_ready, self._on_lost = on_ready, on_lost
         self.conn: Gio.DBusConnection | None = None
         self.pool = ThreadPoolExecutor(max_workers=6, thread_name_prefix="dbus")
+        self.fast_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="dbus-fast")
+        self._pending: dict[str, int] = {}
+        self._pending_lock = threading.Lock()
         self._preview: Preview | None = None
         self._preview_lock = threading.Lock()
         self._owner_id = 0
@@ -223,10 +256,12 @@ class DBusService:
             invocation.return_dbus_error("org.freedesktop.DBus.Error.UnknownMethod", method)
             return
         args = params.unpack()
+        interactive = bool(invocation.get_message().get_flags() & Gio.DBusMessageFlags.ALLOW_INTERACTIVE_AUTHORIZATION)
 
         def work() -> None:
             try:
-                result = handler(sender, *args)
+                with serving(interactive):
+                    result = handler(sender, *args)
                 out = self._out_sigs[method]
                 value = GLib.Variant(out, result if out != "()" else ())
                 GLib.idle_add(invocation.return_value, value)
@@ -235,13 +270,14 @@ class DBusService:
             except PermissionError as exc:
                 GLib.idle_add(invocation.return_dbus_error,
                               "org.freedesktop.DBus.Error.AccessDenied", str(exc))
-            except Exception as exc:  # noqa: BLE001
+            except Exception:  # noqa: BLE001
+                # the details (paths, library messages) stay in the journal: the caller may be anybody
                 log.exception("unexpected error in %s", method)
-                GLib.idle_add(invocation.return_dbus_error, error_name("internal"), str(exc))
+                GLib.idle_add(invocation.return_dbus_error, error_name("internal"), GENERIC_INTERNAL_ERROR)
             finally:
                 self.core.touch()
 
-        self.pool.submit(work)
+        (self.fast_pool if method in FAST_METHODS else self.pool).submit(work)
 
     # ------------------------------------------------------- authorization
     def caller_uid(self, sender: str) -> int:
@@ -252,11 +288,29 @@ class DBusService:
                                   Gio.DBusCallFlags.NONE, 2000, None)
         return res.unpack()[0]
 
-    def require(self, sender: str, action: str) -> None:
+    @contextlib.contextmanager
+    def _authorization_slot(self, sender: str):
+        with self._pending_lock:
+            waiting = self._pending.get(sender, 0)
+            if waiting >= MAX_PENDING_AUTHORIZATIONS:
+                raise ApiError("too-many-requests", "too many requests of this caller are waiting for authorization")
+            self._pending[sender] = waiting + 1
         try:
-            allowed = self._authorizer.check(sender, action)
-        except PolkitUnavailable as exc:
-            raise ApiError("polkit-unavailable", f"{action}: {exc}") from exc
+            yield
+        finally:
+            with self._pending_lock:
+                left = self._pending.get(sender, 1) - 1
+                if left > 0:
+                    self._pending[sender] = left
+                else:
+                    self._pending.pop(sender, None)
+
+    def require(self, sender: str, action: str) -> None:
+        with self._authorization_slot(sender):
+            try:
+                allowed = self._authorizer.check(sender, action)
+            except PolkitUnavailable as exc:
+                raise ApiError("polkit-unavailable", f"{action}: {exc}") from exc
         if not allowed:
             raise PermissionError(f"not authorized ({action})")
 
@@ -402,6 +456,9 @@ class DBusService:
 
     def m_test(self, sender, username, camera_class):
         self.require_self_or_admin(sender, username)
+        # Looking at one's own account is free, but this switches the camera on: like a preview it is
+        # for somebody at the machine (active local session), not for a remote or background session.
+        self.require(sender, ACTION_CAMERA)
         self.stop_preview(sender)
 
         def progress(phase: str, **fields: str) -> None:

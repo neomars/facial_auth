@@ -91,7 +91,8 @@ class Core:
                                       self.cfg["security", "failure_window"],
                                       self.cfg["security", "lockout"],
                                       growth=self.cfg["security", "lockout_growth"],
-                                      max_lockout=self.cfg["security", "lockout_max"])
+                                      max_lockout=self.cfg["security", "lockout_max"],
+                                      state_file=self.paths.state / "lockout.json")
         self._cams: tuple[float, list[v4l2.CameraInfo]] = (0.0, [])
         self._lock = threading.Lock()
         self.active = 0                       # running scans / sessions (idle timer)

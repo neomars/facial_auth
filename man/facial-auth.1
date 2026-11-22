@@ -60,6 +60,13 @@ Show or change a setting such as \fBrecognition.threshold\fR.
 Download the face detection and recognition models (root).  Files are checked
 against pinned SHA-256 sums.
 .TP
+.BR purge-orphans " [" \-n "] [" \-y "]"
+Remove face data that no longer belongs to the account it was enrolled for (root).  Faces are filed
+under the numeric user id but remember the account name they were enrolled for: when the account is
+deleted and its id given to somebody else, or the account is renamed, they are ignored (nobody
+inherits a face) and stay on disk until this command removes them.  \fB\-n\fR only lists them;
+without \fB\-y\fR the command asks first.
+.TP
 .B doctor
 Diagnose the installation and suggest fixes.
 .SH FILES
@@ -68,7 +75,8 @@ Diagnose the installation and suggest fixes.
 Local configuration.  See \fI/usr/share/facial-auth/defaults.conf\fR.
 .TP
 .I /var/lib/facial-auth/
-Face templates (embeddings only, never photographs) and settings made from the settings application.
+Face templates (embeddings only, never photographs), settings made from the settings application, and
+\fIlockout.json\fR, the face lock-outs in progress (delete it, with the daemon stopped, to clear them).
 .SH SECURITY
 A colour webcam can be fooled by a photograph.  By default only an infrared
 camera is trusted for sudo, su and polkit.  See

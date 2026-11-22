@@ -81,9 +81,20 @@ sans test sur un vrai écran de connexion, la valeur sûre est le mode séquenti
   vérifiés par SHA-256 avant chargement.
 * `store.py` — embeddings seuls, `faces.json` en 0600 dans un dossier 0700,
   écritures atomiques ; un fichier illisible équivaut à « aucun visage »
-  (jamais « n'importe quel visage »). Des marqueurs vides `enrolled/<login>`
-  permettent au module PAM de ne même pas contacter le démon pour les comptes
-  sans visage.
+  (jamais « n'importe quel visage »). Les visages sont rangés par numéro
+  d'utilisateur **mais retiennent le nom du compte** : si le numéro désigne
+  aujourd'hui un autre nom (compte supprimé puis numéro réattribué, compte
+  renommé, annuaire injoignable), ils ne servent pas — et rien n'est effacé
+  tant que `facial-auth purge-orphans` n'a pas été lancé par root. Des
+  marqueurs vides `enrolled/<login>` permettent au module PAM de ne même pas
+  contacter le démon pour les comptes sans visage.
+* `ratelimit.py` — verrouillage progressif du chemin facial par compte ;
+  l'état (verrouillages en cours et « coups » récents) est écrit dans
+  `/var/lib/facial-auth/lockout.json`, car le démon s'arrête après 15 minutes
+  d'inactivité et peut être redémarré à tout moment.
+* `scan.decode_image` — seul endroit où le démon lit des octets choisis par
+  quelqu'un d'autre : JPEG et PNG uniquement, taille lue dans l'en-tête avant
+  d'allouer quoi que ce soit, deux décodages à la fois (voir `docs/SECURITY.md`).
 * `challenge.py` — défi de tête : suivi de points de texture (flux optique), plan de l'intérieur du
   visage, parallaxe signée du nez ; machine à états (ordre aléatoire, continuité d'identité). Voir
   `docs/SECURITY.md` pour le principe, les mesures et les limites.

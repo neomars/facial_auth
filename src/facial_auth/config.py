@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import configparser
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -101,6 +102,21 @@ WRITABLE = {k for k in SCHEMA if k[0] in ("core", "camera", "recognition", "live
                           ("camera", "allow_virtual")}}
 
 
+# Names of PAM services (and of the per-service interaction mode) written by the GUI / D-Bus API.
+# ConfigParser writes an option name exactly as it is given: a name holding line breaks or brackets
+# would add whole sections to settings.conf.  What a real PAM service is called fits in here.
+_SERVICE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._@-]{0,63}")
+MAX_VALUE_LENGTH = 256
+
+
+def valid_service_name(name: str) -> bool:
+    return _SERVICE_NAME.fullmatch(name) is not None
+
+
+def _one_clean_line(value: object) -> bool:
+    return isinstance(value, str) and value.isprintable() and len(value) <= MAX_VALUE_LENGTH
+
+
 @dataclass(frozen=True)
 class ServicePolicy:
     camera_class: str   # any | ir | off
@@ -170,7 +186,10 @@ class Config:
                 log.error("ignoring configuration file %s: %s", f, exc)
                 errors.append(f"{f}: {exc}")
                 continue
-            merged.read_dict({sec: dict(single[sec]) for sec in single.sections()})
+            sections = {sec: dict(single[sec]) for sec in single.sections()}
+            if Path(f) == Path(paths.settings):
+                sections = _what_the_settings_file_may_hold(sections, f, errors)
+            merged.read_dict(sections)
         cfg = cls._build(merged)
         cfg.warnings = errors + cfg.warnings
         return cfg
@@ -201,6 +220,28 @@ class Config:
         for w in warnings:
             log.warning("configuration: %s", w)
         return cls(values, services, interaction, warnings)
+
+
+def _what_the_settings_file_may_hold(sections: dict[str, dict[str, str]], source: object,
+                                     errors: list[str]) -> dict[str, dict[str, str]]:
+    """The settings file is written by the daemon, which is not root and parses pictures sent by any
+    local user, and it is read *last*, over /etc.  It may therefore hold what SetConfig may change
+    (WRITABLE, service and interaction names) and nothing else: security.*, the emitter commands
+    (which the daemon executes) and allow_virtual only come from the root-owned files."""
+    kept: dict[str, dict[str, str]] = {}
+    for sec, items in sections.items():
+        for key, value in items.items():
+            if sec in ("services", "interaction"):
+                allowed = valid_service_name(key)
+            else:
+                allowed = (sec, key) in WRITABLE
+            if allowed:
+                kept.setdefault(sec, {})[key] = value
+            else:
+                msg = f"{source}: [{sec}] {key} cannot be set from this file, ignored"
+                log.warning("configuration: %s", msg)
+                errors.append(msg)
+    return kept
 
 
 def _convert(sec: str, key: str, raw: str | None, kind: str, default: Any, low: Any,
@@ -252,14 +293,15 @@ def validate_update(changes: dict[str, Any]) -> dict[tuple[str, str], str]:
             converted = _convert(sec, key, text, kind, None, low, high, warnings)
             if warnings:
                 raise ValueError(warnings[0])
+            if kind == "str" and not _one_clean_line(converted):
+                raise ValueError(f"{name}: expected one printable line of at most {MAX_VALUE_LENGTH} characters")
             out[(sec, key)] = ("true" if converted else "false") if kind == "bool" else str(converted)
-        elif sec == "services" and key:
-            if str(value) not in SERVICE_CLASSES:
-                raise ValueError(f"{name}: expected one of {', '.join(SERVICE_CLASSES)}")
-            out[(sec, key)] = str(value)
-        elif sec == "interaction" and key:
-            if str(value) not in INTERACTION_MODES:
-                raise ValueError(f"{name}: expected one of {', '.join(INTERACTION_MODES)}")
+        elif sec in ("services", "interaction") and key:
+            if not valid_service_name(key):
+                raise ValueError(f"{name}: not a valid service name")
+            allowed = SERVICE_CLASSES if sec == "services" else INTERACTION_MODES
+            if str(value) not in allowed:
+                raise ValueError(f"{name}: expected one of {', '.join(allowed)}")
             out[(sec, key)] = str(value)
         else:
             raise ValueError(f"unknown option {name}")
@@ -267,10 +309,30 @@ def validate_update(changes: dict[str, Any]) -> dict[tuple[str, str], str]:
 
 
 def write_settings(path: Path, changes: dict[tuple[str, str], str]) -> None:
-    """Merge ``changes`` into the daemon-owned settings file (atomic write)."""
-    parser = configparser.ConfigParser(interpolation=None)
+    """Merge ``changes`` into the daemon-owned settings file (atomic write).
+
+    Everything is checked before the file is touched, and only what the file may hold is accepted
+    (see ``_what_the_settings_file_may_hold``): option names are written as they come, so a name
+    with line breaks in it would add sections of its own.
+    """
+    for (sec, key), val in changes.items():
+        if sec in ("services", "interaction"):
+            allowed = valid_service_name(key)
+        else:
+            allowed = (sec, key) in WRITABLE
+        if not allowed:
+            raise ValueError(f"[{sec}] {key!r} cannot be written to the settings file")
+        if not _one_clean_line(val):
+            raise ValueError(f"[{sec}] {key}: the value must be one printable line of at most "
+                             f"{MAX_VALUE_LENGTH} characters")
+    parser = configparser.ConfigParser(interpolation=None, strict=False)
     if path.is_file():
-        parser.read(path, encoding="utf-8")
+        try:
+            parser.read(path, encoding="utf-8")
+        except (configparser.Error, UnicodeDecodeError) as exc:
+            # Config.load() ignores a file that does not parse as a whole: start again from nothing.
+            log.warning("settings file %s is damaged (%s): rewritten from scratch", path, exc)
+            parser = configparser.ConfigParser(interpolation=None, strict=False)
     for (sec, key), val in changes.items():
         if not parser.has_section(sec):
             parser.add_section(sec)

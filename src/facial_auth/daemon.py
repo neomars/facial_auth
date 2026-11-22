@@ -12,10 +12,11 @@ import sys
 import threading
 from pathlib import Path
 
-# Untrusted images are decoded by OpenCV: cap the decoded size (default 1 Gpixel).
-os.environ.setdefault("OPENCV_IO_MAX_IMAGE_PIXELS", str(32 * 1024 * 1024))
+from .const import MAX_IMAGE_PIXELS, SERVICE_USER, VERSION, Paths
 
-from .const import SERVICE_USER, VERSION, Paths  # noqa: E402
+# Untrusted images are decoded by OpenCV: cap the decoded size (OpenCV's default is 1 Gpixel).
+# scan.decode_image() already refuses anything bigger from the header; this is the second fence.
+os.environ.setdefault("OPENCV_IO_MAX_IMAGE_PIXELS", str(MAX_IMAGE_PIXELS))
 
 log = logging.getLogger("facial-authd")
 SD_LISTEN_FDS_START = 3
@@ -44,6 +45,22 @@ def own_listener(path: Path) -> socket.socket:
     return sock
 
 
+# Variables that redirect where the daemon reads its files and messages from: for tests and development.
+DEV_ENVIRONMENT = ("FACIAL_AUTH_ROOT", "FACIAL_AUTH_LOCALEDIR", "FACIAL_AUTH_BUS")
+
+
+def scrub_environment(dev: bool, environ: "os._Environ[str] | dict[str, str]" = os.environ) -> None:
+    """Outside --dev the daemon ignores the development variables, whoever set them."""
+    if not dev:
+        for var in DEV_ENVIRONMENT:
+            environ.pop(var, None)
+
+
+def started_by_systemd(environ: "os._Environ[str] | dict[str, str]" = os.environ) -> bool:
+    """True for the service itself: systemd sets INVOCATION_ID and is the parent process."""
+    return bool(environ.get("INVOCATION_ID")) and os.getppid() == 1
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap = argparse.ArgumentParser(prog="facial-authd", description=__doc__)
     ap.add_argument("--version", action="version", version=VERSION)
@@ -65,6 +82,10 @@ def main(argv: list[str] | None = None) -> int:
     if (args.root or args.fake_camera or args.socket or args.no_polkit) and not args.dev:
         log.error("--root/--socket/--fake-camera/--no-polkit are development options: add --dev")
         return 2
+    if args.no_polkit and started_by_systemd():
+        log.error("--no-polkit authorises every D-Bus call: it is refused when started as a system service")
+        return 2
+    scrub_environment(args.dev)
 
     from gi.repository import GLib, Gio
 

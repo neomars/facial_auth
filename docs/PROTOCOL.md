@@ -32,6 +32,14 @@ sécurité qu'il peut recouper lui-même : l'UID de l'appelant vient de
 `SO_PEERCRED`, la session logind (locale / distante) est déduite du PID de
 l'appelant.
 
+Chaque valeur doit être **une ligne imprimable de longueur bornée** : `user` 256
+caractères, `service` 64, `tty` 128, `rhost` 256, `ruser` 256 ; aucun caractère
+de contrôle (retour à la ligne, `ESC`, NUL, `DEL`, séparateurs de ligne Unicode).
+Sinon la requête est refusée (`SKIP reason=bad-request`, le mot de passe est
+demandé comme d'habitude). La socket est ouverte à tous (`0666`) et ces champs
+vont dans le journal : sans cette règle, un utilisateur local pouvait y écrire des
+lignes qui avaient l'air de venir du démon.
+
 ## Démon → module
 
 La première réponse est toujours `ACCEPT` ou `SKIP`.

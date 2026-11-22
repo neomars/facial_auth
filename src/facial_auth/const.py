@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: MIT
 """Names, paths and defaults shared by the daemon, the CLI and the GUI.
 
-Paths can be redirected with ``FACIAL_AUTH_ROOT`` (tests, development); the
-daemon ignores that variable unless it is started with ``--dev``.
+Paths can be redirected with ``FACIAL_AUTH_ROOT`` (tests, development).  The daemon
+removes that variable (and ``FACIAL_AUTH_LOCALEDIR``, ``FACIAL_AUTH_BUS``) from its
+environment unless it is started with ``--dev``; the command line tools honour them.
 """
 from __future__ import annotations
 
@@ -24,6 +25,10 @@ ACTION_CONFIGURE = "io.github.neomars.FacialAuth1.configure"
 ACTION_CAMERA = "io.github.neomars.FacialAuth1.use-camera"
 
 SERVICE_USER = "facial-auth"
+
+# Largest picture (width x height, as written in its header) the daemon agrees to decode.
+# 24 Mi pixels: a 24-megapixel camera passes, nothing bigger.  OpenCV is given the same bound.
+MAX_IMAGE_PIXELS = 24 * 1024 * 1024
 
 
 def _root() -> Path:
