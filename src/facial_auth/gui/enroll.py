@@ -356,10 +356,15 @@ class EnrollPage(Adw.NavigationPage):
             title=_("Link this face to an account"),
             description=_("Only an administrator can link a face to an account. You will be asked for "
                           "an administrator's password."))
-        self.account_row = Adw.ComboRow(title=_("Account"))
+        self.account_row = Adw.ComboRow(title=_("Account"), enable_search=True)
+        self.account_row.set_expression(Gtk.PropertyExpression.new(Gtk.StringObject, None, "string"))
+        # an account the list does not show (a directory account): its login is typed here
+        self.other_row = Adw.EntryRow(title=_("Another account (login)"), show_apply_button=True)
+        self.other_row.connect("apply", lambda row: self.lookup_account(row.get_text().strip()))
         self.label_row = Adw.EntryRow(title=_("Name of this face"), text=_("My face"))
         self.summary = Adw.ActionRow(title=_("Photos"))
         g.add(self.account_row)
+        g.add(self.other_row)
         g.add(self.label_row)
         g.add(self.summary)
         page.add(g)
@@ -383,16 +388,43 @@ class EnrollPage(Adw.NavigationPage):
         if err:
             self.win.toast(self._explain(err))
             return
-        self._users = out[0]
-        model = Gtk.StringList.new([f"{u['realname']} ({u['name']})" for u in self._users])
-        self.account_row.set_model(model)
-        names = [u["name"] for u in self._users]
-        self.account_row.set_selected(names.index(self.user) if self.user in names else 0)
+        # you first, then the accounts that have faces, then the others by name
+        self._users = sorted(out[0], key=lambda u: (u["name"] != self.user, not u["faces"], u["name"].casefold()))
+        self._show_accounts(self.user)
         cls, src = self.kind or ("rgb", "import")
         kind = _("infrared camera") if cls == "ir" else _("colour camera")
         self.summary.set_subtitle(_("%d photos from the %s") % (len(self.photos), kind))
         self.stack.set_visible_child_name("link")
         self.next_btn.set_visible(False)
+
+    def _show_accounts(self, select: str | None) -> None:
+        self.account_row.set_model(Gtk.StringList.new([f"{u['realname']} ({u['name']})" for u in self._users]))
+        names = [u["name"] for u in self._users]
+        self.account_row.set_selected(names.index(select) if select in names else 0)
+
+    def lookup_account(self, login: str) -> None:
+        """Add an account that the list does not show, found by its login (the daemon asks the system)."""
+        if not login:
+            return
+        known = next((u for u in self._users if u["name"] == login), None)
+        if known is not None:
+            self._show_accounts(login)
+            self.other_row.set_text("")
+            return
+        self.other_row.set_sensitive(False)
+
+        def found(out, err):
+            self.other_row.set_sensitive(True)
+            if err:
+                self.win.toast(self._explain(err))
+                return
+            account = out[0]
+            if not any(u["uid"] == account["uid"] for u in self._users):
+                self._users.append(account)
+            self._show_accounts(account["name"])
+            self.other_row.set_text("")
+            self.win.toast(_("Account %s found") % account["name"])
+        self.client.call_async("LookupUser", "s", (login,), found, 20000)
 
     def link(self) -> None:
         if not self._users:

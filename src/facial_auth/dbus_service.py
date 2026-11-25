@@ -37,9 +37,13 @@ PREVIEW_IDLE_SECONDS = 15.0
 # One caller can have this many requests waiting for polkit (an administrator typing a password) at
 # the same time: more would let a single process hold every worker thread for ten minutes.
 MAX_PENDING_AUTHORIZATIONS = 2
+# Looking accounts up asks the user database, which may be a directory reached over the network: a
+# caller gets the same bound there (the list and the look-ups share it).
+MAX_PENDING_LOOKUPS = 2
 # Calls that need no authorization and answer at once get workers of their own, so that they are
-# never queued behind requests that wait for somebody to type a password.
-FAST_METHODS = frozenset({"GetStatus", "ListCameras", "ListUsers", "GetConfig"})
+# never queued behind requests that wait for somebody to type a password.  (ListUsers is not one of
+# them: behind it there can be a directory.)
+FAST_METHODS = frozenset({"GetStatus", "ListCameras", "GetConfig"})
 GENERIC_INTERNAL_ERROR = "internal error (the details are in the journal of facial-authd)"
 
 # What the caller of the request being served by this thread allowed (see _on_call).
@@ -66,6 +70,10 @@ INTROSPECTION = f"""
     <method name="GetStatus"><arg type="a{{sv}}" name="status" direction="out"/></method>
     <method name="ListCameras"><arg type="aa{{sv}}" name="cameras" direction="out"/></method>
     <method name="ListUsers"><arg type="aa{{sv}}" name="users" direction="out"/></method>
+    <method name="LookupUser">
+      <arg type="s" name="user" direction="in"/>
+      <arg type="a{{sv}}" name="account" direction="out"/>
+    </method>
     <method name="ListFaces">
       <arg type="s" name="user" direction="in"/>
       <arg type="aa{{sv}}" name="faces" direction="out"/>
@@ -209,6 +217,7 @@ class DBusService:
         self._owner_id = 0
         self.table: dict[str, Callable[..., Any]] = {
             "GetStatus": self.m_status, "ListCameras": self.m_cameras, "ListUsers": self.m_users,
+            "LookupUser": self.m_lookup_user,
             "ListFaces": self.m_list_faces, "GetConfig": self.m_get_config,
             "SetConfig": self.m_set_config, "AnalyzeImage": self.m_analyze,
             "StartPreview": self.m_start_preview, "GrabFrame": self.m_grab,
@@ -289,21 +298,31 @@ class DBusService:
         return res.unpack()[0]
 
     @contextlib.contextmanager
-    def _authorization_slot(self, sender: str):
+    def _slot(self, sender: str, kind: str, limit: int, message: str):
+        """At most ``limit`` requests of one kind in progress for one caller."""
+        key = (sender, kind)
         with self._pending_lock:
-            waiting = self._pending.get(sender, 0)
-            if waiting >= MAX_PENDING_AUTHORIZATIONS:
-                raise ApiError("too-many-requests", "too many requests of this caller are waiting for authorization")
-            self._pending[sender] = waiting + 1
+            waiting = self._pending.get(key, 0)
+            if waiting >= limit:
+                raise ApiError("too-many-requests", message)
+            self._pending[key] = waiting + 1
         try:
             yield
         finally:
             with self._pending_lock:
-                left = self._pending.get(sender, 1) - 1
+                left = self._pending.get(key, 1) - 1
                 if left > 0:
-                    self._pending[sender] = left
+                    self._pending[key] = left
                 else:
-                    self._pending.pop(sender, None)
+                    self._pending.pop(key, None)
+
+    def _authorization_slot(self, sender: str):
+        return self._slot(sender, "authorization", MAX_PENDING_AUTHORIZATIONS,
+                          "too many requests of this caller are waiting for authorization")
+
+    def _lookup_slot(self, sender: str):
+        return self._slot(sender, "lookup", MAX_PENDING_LOOKUPS,
+                          "too many look-ups of this caller are in progress")
 
     def require(self, sender: str, action: str) -> None:
         with self._authorization_slot(sender):
@@ -329,7 +348,18 @@ class DBusService:
         return ([vardict(c.public()) for c in self.core.cameras(refresh=True)],)
 
     def m_users(self, sender):
-        return ([vardict(self.core.user_summary(p)) for p in self.core.human_users()],)
+        with self._lookup_slot(sender):
+            try:
+                caller: int | None = self.caller_uid(sender)
+            except GLib.Error:
+                caller = None                   # the caller left: the list is just without "its" account
+            enrolled = set(self.core.store.users())
+            return ([vardict(self.core.user_summary(p, enrolled)) for p in self.core.listed_users(caller)],)
+
+    def m_lookup_user(self, sender, username):
+        """An account the list does not show (a directory account), found by its login."""
+        with self._lookup_slot(sender):
+            return (vardict(self.core.lookup_user(username)),)
 
     def m_list_faces(self, sender, username):
         uid = self.require_self_or_admin(sender, username)

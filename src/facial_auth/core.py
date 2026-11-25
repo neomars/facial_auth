@@ -27,9 +27,14 @@ from .trust import CameraTrust
 
 log = logging.getLogger(__name__)
 
-HUMAN_UID_MIN, HUMAN_UID_MAX = 1000, 60000
 NO_LOGIN_SHELLS = ("nologin", "false")
 CAMERA_CACHE_SECONDS = 5.0
+# The accounts offered to the settings application.  A directory (LDAP...) can hold thousands: the
+# enumeration is remembered for a short while, and the answer is bounded (the accounts that matter -
+# the person asking, accounts with faces or a session - come first, the enumeration fills what is left).
+DIRECTORY_CACHE_SECONDS = 20.0
+MAX_LISTED_USERS = 2000
+MAX_EXTRA_USERS = 200
 
 
 class ApiError(Exception):
@@ -98,10 +103,14 @@ class Core:
         self.active = 0                       # running scans / sessions (idle timer)
         self.last_activity = time.monotonic()
         self.started = time.time()
+        self.directory_ttl = DIRECTORY_CACHE_SECONDS
+        self._directory: tuple[float, list[pwd.struct_passwd]] | None = None
+        self._directory_lock = threading.Lock()
 
     # ------------------------------------------------------------ plumbing
     def reload(self) -> None:
         self.cfg = Config.load(self.paths)
+        self._directory = None
         self.limiter.configure(self.cfg["security", "max_failures"],
                                self.cfg["security", "failure_window"],
                                self.cfg["security", "lockout"],
@@ -260,28 +269,115 @@ class Core:
                      "steps": res.challenge.get("steps", "-")})
 
     # --------------------------------------------------------- management
-    def human_users(self) -> list[pwd.struct_passwd]:
-        out = []
-        for pw in pwd.getpwall():
-            if HUMAN_UID_MIN <= pw.pw_uid < HUMAN_UID_MAX and not pw.pw_shell.endswith(NO_LOGIN_SHELLS):
-                out.append(pw)
-        return sorted(out, key=lambda p: p.pw_uid)
+    def _looks_human(self, pw: pwd.struct_passwd) -> bool:
+        if pw.pw_uid == 0 and not self.cfg["security", "allow_root"]:
+            return False
+        return (self.cfg["core", "uid_min"] <= pw.pw_uid <= self.cfg["core", "uid_max"]
+                and not pw.pw_shell.endswith(NO_LOGIN_SHELLS))
 
-    def user_summary(self, pw: pwd.struct_passwd) -> dict:
-        faces = self.store.load(pw.pw_uid)
+    def human_users(self) -> list[pwd.struct_passwd]:
+        """The accounts the system *enumerates*: the local ones, and a directory's (LDAP, SSSD, AD) only
+        when its client is set to enumerate, which most are not.  See listed_users() for the rest."""
+        if not self.cfg["core", "list_directory"]:
+            return []
+        with self._directory_lock:
+            if self._directory is not None and time.monotonic() - self._directory[0] < self.directory_ttl:
+                return self._directory[1]
+            try:
+                found = [pw for pw in pwd.getpwall() if self._looks_human(pw)]
+            except Exception as exc:  # noqa: BLE001 - an NSS module can fail in many ways
+                log.warning("cannot enumerate the user database: %s", exc)
+                found = []
+            found.sort(key=lambda p: p.pw_uid)
+            self._directory = (time.monotonic(), found)
+            return found
+
+    def _extra_user_names(self) -> list[str]:
+        names: list[str] = []
+        for token in self.cfg["core", "extra_users"].replace(",", " ").split():
+            if protocol.valid_user_name(token) and token not in names:
+                names.append(token)
+            if len(names) >= MAX_EXTRA_USERS:
+                break
+        return names
+
+    def listed_users(self, caller_uid: int | None = None) -> list[pwd.struct_passwd]:
+        """Accounts offered by the settings application and `facial-auth users`.
+
+        A directory account is usually *not* in the enumeration, so the list is built from what the
+        machine knows about people: the one using the application, accounts that have faces, accounts
+        with a session (a directory user who signed in is there), the logins named in the settings,
+        and then whatever the system can enumerate.  Any other account is added by typing its login
+        (lookup_user).  Accounts are listed once, in the order of importance, bounded.
+        """
+        found: dict[int, pwd.struct_passwd] = {}
+
+        def known(uid: int) -> pwd.struct_passwd | None:
+            try:
+                return pwd.getpwuid(uid)
+            except (KeyError, OverflowError):
+                return None
+
+        def add(pw: pwd.struct_passwd | None, *, filtered: bool = False) -> None:
+            if pw is None or pw.pw_uid in found or len(found) >= MAX_LISTED_USERS:
+                return
+            if pw.pw_uid == 0 and not self.cfg["security", "allow_root"]:
+                return
+            if filtered and not self._looks_human(pw):
+                return
+            found[pw.pw_uid] = pw
+
+        if caller_uid is not None:
+            add(known(caller_uid))
+        for uid in self.store.users():
+            add(known(uid))
+        sessions_of = getattr(self.sessions, "users", None)
+        try:
+            session_uids = sessions_of() if sessions_of else []
+        except Exception as exc:  # noqa: BLE001
+            log.debug("cannot list the accounts with a session: %s", exc)
+            session_uids = []
+        for uid in session_uids:
+            add(known(uid), filtered=True)
+        for name in self._extra_user_names():
+            try:
+                add(pwd.getpwnam(name))
+            except KeyError:
+                pass
+        for pw in self.human_users():
+            add(pw)
+        return sorted(found.values(), key=lambda p: p.pw_uid)
+
+    def user_summary(self, pw: pwd.struct_passwd, enrolled: set[int] | None = None) -> dict:
+        """``enrolled``: the uids that have a face file; an account outside it is not read from disk."""
+        if enrolled is not None and pw.pw_uid not in enrolled:
+            count, enabled = 0, True
+        else:
+            faces = self.store.load(pw.pw_uid)
+            count, enabled = len(faces.faces), faces.enabled
         return {"uid": pw.pw_uid, "name": pw.pw_name,
                 "realname": pw.pw_gecos.split(",")[0] or pw.pw_name,
-                "faces": len(faces.faces), "enabled": faces.enabled,
+                "faces": count, "enabled": enabled,
                 "locked_out": int(self.limiter.remaining(pw.pw_uid))}
 
-    def uid_of(self, username: str) -> int:
+    def account_of(self, username: str) -> pwd.struct_passwd:
+        if not protocol.valid_user_name(username):
+            raise ApiError("bad-argument", "not a valid account name")
         try:
             pw = pwd.getpwnam(username)
         except KeyError as exc:
-            raise ApiError("unknown-user", f"no such user: {username}") from exc
+            raise ApiError("unknown-user", f"no such user: {username} (the system does not know this account: "
+                           f"check 'getent passwd {username}')") from exc
         if pw.pw_uid == 0 and not self.cfg["security", "allow_root"]:
             raise ApiError("not-allowed", "root cannot use face authentication")
-        return pw.pw_uid
+        return pw
+
+    def uid_of(self, username: str) -> int:
+        return self.account_of(username).pw_uid
+
+    def lookup_user(self, username: str) -> dict:
+        """An account of the system, found by its login (what the list cannot show)."""
+        return self.user_summary(self.account_of(username))
 
     def analyze(self, data: bytes) -> dict:
         try:

@@ -23,6 +23,12 @@ Show the state of the service, the camera and the accounts.
 .B cameras
 List detected cameras and whether they are infrared (IR) or colour (RGB).
 .TP
+.BR users " [\fILOGIN\fR]"
+List the accounts the settings application offers (yours, the accounts that have faces or a session, the
+ones named in \fBcore.extra_users\fR, and what the system enumerates), or look one account up by its login.
+Directory accounts (LDAP, SSSD, Active Directory) are usually not enumerated: \fBfacial-auth users \fILOGIN\fR
+shows whether the daemon can resolve one, which is what linking a face to it needs.
+.TP
 .BR list " [" \-u " \fIUSER\fR]"
 List the faces linked to accounts.
 .TP

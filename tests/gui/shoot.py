@@ -38,7 +38,7 @@ from python.fakes import FakeEngine, ScriptedCamera, face_frame  # noqa: E402
 
 from facial_auth import v4l2  # noqa: E402
 from facial_auth.const import Paths  # noqa: E402
-from facial_auth.core import Core  # noqa: E402
+from facial_auth.core import ApiError, Core  # noqa: E402
 from facial_auth.dbus_service import DBusService  # noqa: E402
 from facial_auth.store import FaceStore  # noqa: E402
 
@@ -57,6 +57,19 @@ core = Core(paths=paths, store=FaceStore(paths, name_of=lambda u: names.get(u, "
             models_probe=lambda: {"ok": True, "missing": []})
 core.human_users = lambda: [pwd.struct_passwd((n, "x", u, u, real[u] + ",,,", f"/home/{n}", "/bin/bash")) for u, n in names.items()]
 core.uid_of = lambda name: {v: k for k, v in names.items()}[name]
+# the user database of this fake machine: the daemon now asks it by uid too (accounts with faces, the caller)
+pwd.getpwuid = lambda uid: pwd.struct_passwd((names[uid], "x", uid, uid, real[uid] + ",,,", f"/home/{names[uid]}", "/bin/bash")) \
+    if uid in names else (_ for _ in ()).throw(KeyError(uid))
+# a directory account: the system can look it up by its login, but does not enumerate it
+
+
+def fake_lookup(name):
+    if name != "jdupont":
+        raise ApiError("unknown-user", f"no such user: {name}")
+    return {"uid": 1234567, "name": "jdupont", "realname": "Jeanne Dupont", "faces": 0, "enabled": True, "locked_out": 0}
+
+
+core.lookup_user = fake_lookup
 GLib.get_user_name = lambda: "alice"
 
 
@@ -144,6 +157,26 @@ def step4():
     win, page = state["win"], state["page"]
     shot(win, "04-link-account")
     check("account list filled", page.account_row.get_model().get_n_items() == 2)
+    check("the account chooser can be searched", page.account_row.get_enable_search())
+    check("a login can be typed for an account that is not listed", page.other_row is not None)
+    page.lookup_account("ghost")                      # unknown: nothing added, the entry is usable again
+    later(800, step4b)
+
+
+def step4b():
+    win, page = state["win"], state["page"]
+    check("an unknown login adds nothing", page.account_row.get_model().get_n_items() == 2 and page.other_row.get_sensitive())
+    page.lookup_account("jdupont")
+    later(800, step4c)
+
+
+def step4c():
+    win, page = state["win"], state["page"]
+    check("the directory account is added and selected",
+          page.account_row.get_model().get_n_items() == 3 and page._users[page.account_row.get_selected()]["name"] == "jdupont")
+    shot(win, "04b-link-directory-account")
+    page.account_row.set_selected(0)                  # back to alice, who is the one in front of the camera
+    check("alice is still first", page._users[page.account_row.get_selected()]["name"] == "alice")
     page.link()
     later(2500, step5)
 
