@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: facial-auth 0.1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-22 16:17+0000\n"
+"POT-Creation-Date: 2026-11-25 09:06+0000\n"
 "PO-Revision-Date: 2026-11-17 00:00+0000\n"
 "Last-Translator: facial-auth contributors\n"
 "Language-Team: French\n"
@@ -30,11 +30,11 @@ msgstr ""
 "Tournez nettement la tête vers votre gauche, puis vers votre droite, puis "
 "regardez l'écran."
 
-#: pam/pam_facial_auth.c:195 src/facial_auth/cli.py:206
+#: pam/pam_facial_auth.c:195 src/facial_auth/cli.py:227
 msgid "Good. Now turn your head clearly to your left."
 msgstr "Bien. Maintenant, tournez nettement la tête vers votre gauche."
 
-#: pam/pam_facial_auth.c:196 src/facial_auth/cli.py:207
+#: pam/pam_facial_auth.c:196 src/facial_auth/cli.py:228
 msgid "Good. Now turn your head clearly to your right."
 msgstr "Bien. Maintenant, tournez nettement la tête vers votre droite."
 
@@ -70,59 +70,59 @@ msgstr "Recherche de votre visage... (ou saisissez votre mot de passe)"
 msgid "Face recognized."
 msgstr "Visage reconnu."
 
-#: src/facial_auth/cli.py:22
+#: src/facial_auth/cli.py:21
 msgid "Look straight at the camera"
 msgstr "Regardez droit vers la caméra"
 
-#: src/facial_auth/cli.py:22
+#: src/facial_auth/cli.py:21
 msgid "Turn your head slightly to the left"
 msgstr "Tournez légèrement la tête vers la gauche"
 
-#: src/facial_auth/cli.py:23
+#: src/facial_auth/cli.py:22
 msgid "Turn your head slightly to the right"
 msgstr "Tournez légèrement la tête vers la droite"
 
-#: src/facial_auth/cli.py:23
+#: src/facial_auth/cli.py:22
 msgid "Tilt your head slightly up"
 msgstr "Inclinez légèrement la tête vers le haut"
 
-#: src/facial_auth/cli.py:24
+#: src/facial_auth/cli.py:23
 msgid "Tilt your head slightly down"
 msgstr "Inclinez légèrement la tête vers le bas"
 
-#: src/facial_auth/cli.py:24
+#: src/facial_auth/cli.py:23
 msgid "Look straight again, smile"
 msgstr "Regardez à nouveau droit devant, souriez"
 
-#: src/facial_auth/cli.py:26
+#: src/facial_auth/cli.py:25
 msgid "no face visible"
 msgstr "aucun visage visible"
 
-#: src/facial_auth/cli.py:26
+#: src/facial_auth/cli.py:25
 msgid "several faces visible"
 msgstr "plusieurs visages visibles"
 
-#: src/facial_auth/cli.py:27
+#: src/facial_auth/cli.py:26
 msgid "too far: come closer"
 msgstr "trop loin : rapprochez-vous"
 
-#: src/facial_auth/cli.py:27
+#: src/facial_auth/cli.py:26
 msgid "too dark"
 msgstr "trop sombre"
 
-#: src/facial_auth/cli.py:28
+#: src/facial_auth/cli.py:27
 msgid "too bright"
 msgstr "trop lumineux"
 
-#: src/facial_auth/cli.py:28
+#: src/facial_auth/cli.py:27
 msgid "blurry: stay still"
 msgstr "flou : ne bougez pas"
 
-#: src/facial_auth/cli.py:62
+#: src/facial_auth/cli.py:61
 msgid "Not authorized (an administrator must approve this action)."
 msgstr "Non autorisé (un administrateur doit approuver cette action)."
 
-#: src/facial_auth/cli.py:63
+#: src/facial_auth/cli.py:62
 msgid ""
 "Cannot ask polkit whether you may do this (is polkitd installed and "
 "running?)."
@@ -130,7 +130,7 @@ msgstr ""
 "Impossible d'interroger polkit pour savoir si vous y êtes autorisé (polkitd "
 "est-il installé et démarré ?)."
 
-#: src/facial_auth/cli.py:64
+#: src/facial_auth/cli.py:63
 msgid ""
 "The facial-authd service is not running (try: sudo systemctl start facial-"
 "authd)."
@@ -138,136 +138,160 @@ msgstr ""
 "Le service facial-authd n'est pas démarré (essayez : sudo systemctl start "
 "facial-authd)."
 
-#: src/facial_auth/cli.py:65
+#: src/facial_auth/cli.py:64
 msgid "No suitable camera found."
 msgstr "Aucune caméra utilisable n'a été trouvée."
 
-#: src/facial_auth/cli.py:66
+#: src/facial_auth/cli.py:65
 msgid "The camera is in use by another application."
 msgstr "La caméra est utilisée par une autre application."
 
-#: src/facial_auth/cli.py:67 src/facial_auth/gui/app.py:149
+#: src/facial_auth/cli.py:66 src/facial_auth/gui/app.py:154
 msgid "Face models are missing: run 'sudo facial-auth fetch-models'."
 msgstr ""
 "Les modèles de reconnaissance sont absents : exécutez « sudo facial-auth "
 "fetch-models »."
 
-#: src/facial_auth/cli.py:68
+#: src/facial_auth/cli.py:67
 msgid "Not enough usable photos."
 msgstr "Pas assez de photos exploitables."
 
-#: src/facial_auth/cli.py:69
+#: src/facial_auth/cli.py:68
 msgid "The photos do not all show the same person."
 msgstr "Les photos ne montrent pas toutes la même personne."
 
-#: src/facial_auth/cli.py:70
+#: src/facial_auth/cli.py:69
 msgid "No face is linked to this account."
 msgstr "Aucun visage n'est lié à ce compte."
 
-#: src/facial_auth/cli.py:79
+#: src/facial_auth/cli.py:78
 #, python-format
 msgid "Face authentication: %s"
 msgstr "Authentification faciale : %s"
 
-#: src/facial_auth/cli.py:79
+#: src/facial_auth/cli.py:78
 msgid "enabled"
 msgstr "activée"
 
-#: src/facial_auth/cli.py:79
+#: src/facial_auth/cli.py:78
 msgid "disabled"
 msgstr "désactivée"
 
-#: src/facial_auth/cli.py:80 src/facial_auth/cli.py:468
+#: src/facial_auth/cli.py:79 src/facial_auth/cli.py:490
 #, python-format
 msgid "Camera: %s"
 msgstr "Caméra : %s"
 
-#: src/facial_auth/cli.py:80 src/facial_auth/cli.py:468
-#: src/facial_auth/cli.py:484
+#: src/facial_auth/cli.py:79 src/facial_auth/cli.py:490
+#: src/facial_auth/cli.py:506
 msgid "none"
 msgstr "aucune"
 
-#: src/facial_auth/cli.py:81
+#: src/facial_auth/cli.py:80
 #, python-format
 msgid "Models: %s"
 msgstr "Modèles : %s"
 
-#: src/facial_auth/cli.py:81
+#: src/facial_auth/cli.py:80
 msgid "ok"
 msgstr "ok"
 
-#: src/facial_auth/cli.py:81
+#: src/facial_auth/cli.py:80
 #, python-format
 msgid "missing: %s"
 msgstr "manquants : %s"
 
-#: src/facial_auth/cli.py:82
+#: src/facial_auth/cli.py:81
 #, python-format
 msgid "Lid: %s"
 msgstr "Capot : %s"
 
-#: src/facial_auth/cli.py:82
+#: src/facial_auth/cli.py:81
 msgid "closed"
 msgstr "fermé"
 
-#: src/facial_auth/cli.py:82
+#: src/facial_auth/cli.py:81
 msgid "open"
 msgstr "ouvert"
 
-#: src/facial_auth/cli.py:83
+#: src/facial_auth/cli.py:82
 msgid "Accounts:"
 msgstr "Comptes :"
 
-#: src/facial_auth/cli.py:85
+#: src/facial_auth/cli.py:84
 #, python-format
 msgid "%d face(s), %s"
 msgstr "%d visage(s), %s"
 
-#: src/facial_auth/cli.py:85
+#: src/facial_auth/cli.py:84
 msgid "on"
 msgstr "activé"
 
-#: src/facial_auth/cli.py:85
+#: src/facial_auth/cli.py:84
 msgid "off"
 msgstr "désactivé"
 
-#: src/facial_auth/cli.py:85
+#: src/facial_auth/cli.py:84
 msgid "no face"
 msgstr "aucun visage"
 
-#: src/facial_auth/cli.py:86
+#: src/facial_auth/cli.py:85
 #, python-format
 msgid " [locked out for %ds]"
 msgstr " [verrouillé pendant %d s]"
 
-#: src/facial_auth/cli.py:93
+#: src/facial_auth/cli.py:92 src/facial_auth/gui/app.py:251
+msgid "no face linked"
+msgstr "aucun visage lié"
+
+#: src/facial_auth/cli.py:94 src/facial_auth/gui/app.py:253
+#, python-format
+msgid "%d face(s)"
+msgstr "%d visage(s)"
+
+#: src/facial_auth/cli.py:94 src/facial_auth/gui/app.py:253
+msgid " (disabled)"
+msgstr " (désactivé)"
+
+#: src/facial_auth/cli.py:104
+#, python-format
+msgid "%d account(s) offered by the settings application:"
+msgstr "%d compte(s) proposé(s) par l'application de réglages :"
+
+#: src/facial_auth/cli.py:107
+msgid ""
+"An account that is not listed (a directory account, for instance) can be "
+"looked up by its login: facial-auth users LOGIN"
+msgstr "Un compte absent de la liste (un compte d'annuaire, par exemple) se retrouve par son identifiant : facial-auth users IDENTIFIANT"
+
+#: src/facial_auth/cli.py:114
 msgid " (not a capture device)"
 msgstr " (n'est pas un périphérique de capture)"
 
-#: src/facial_auth/cli.py:93
+#: src/facial_auth/cli.py:114
 msgid " (virtual)"
 msgstr " (virtuelle)"
 
-#: src/facial_auth/cli.py:101
+#: src/facial_auth/cli.py:122
 msgid "No face is linked to any account."
 msgstr "Aucun visage n'est lié à un compte."
 
-#: src/facial_auth/cli.py:112
+#: src/facial_auth/cli.py:133
 #, python-format
 msgid "Using the %s camera."
 msgstr "Utilisation de la caméra %s."
 
-#: src/facial_auth/cli.py:115
+#: src/facial_auth/cli.py:136
 #, python-format
 msgid "Taking %d photos. %s..."
 msgstr "Prise de %d photos. %s..."
 
-#: src/facial_auth/cli.py:133
+#: src/facial_auth/cli.py:154
 #, python-format
 msgid "  photo %d/%d taken"
 msgstr "  photo %d/%d prise"
 
-#: src/facial_auth/cli.py:144
+#: src/facial_auth/cli.py:165
 #, python-format
 msgid ""
 "Linking this face to the account '%s' (administrator approval required)..."
@@ -275,49 +299,49 @@ msgstr ""
 "Liaison de ce visage au compte « %s » (approbation d'un administrateur "
 "requise)..."
 
-#: src/facial_auth/cli.py:147
+#: src/facial_auth/cli.py:168
 #, python-format
 msgid "Done: face '%s' (%s) is now linked to %s."
 msgstr "Terminé : le visage « %s » (%s) est maintenant lié à %s."
 
-#: src/facial_auth/cli.py:148
+#: src/facial_auth/cli.py:169
 msgid ""
 "You can now sign in with your face; the password always remains available."
 msgstr ""
 "Vous pouvez désormais vous connecter avec votre visage ; le mot de passe "
 "reste toujours disponible."
 
-#: src/facial_auth/cli.py:156
+#: src/facial_auth/cli.py:177
 msgid "Not enough good photos were captured."
 msgstr "Pas assez de bonnes photos ont été capturées."
 
-#: src/facial_auth/cli.py:158 src/facial_auth/cli.py:170
+#: src/facial_auth/cli.py:179 src/facial_auth/cli.py:191
 msgid "Face"
 msgstr "Visage"
 
-#: src/facial_auth/cli.py:175
+#: src/facial_auth/cli.py:196
 msgid "Face removed."
 msgstr "Visage supprimé."
 
-#: src/facial_auth/cli.py:181
+#: src/facial_auth/cli.py:202
 #, python-format
 msgid "Remove every face of %s? [y/N] "
 msgstr "Supprimer tous les visages de %s ? [o/N] "
 
-#: src/facial_auth/cli.py:183
+#: src/facial_auth/cli.py:204
 #, python-format
 msgid "%d face(s) removed."
 msgstr "%d visage(s) supprimé(s)."
 
-#: src/facial_auth/cli.py:190
+#: src/facial_auth/cli.py:211
 msgid "Face authentication enabled for this account."
 msgstr "Authentification faciale activée pour ce compte."
 
-#: src/facial_auth/cli.py:190
+#: src/facial_auth/cli.py:211
 msgid "Face authentication disabled for this account."
 msgstr "Authentification faciale désactivée pour ce compte."
 
-#: src/facial_auth/cli.py:197
+#: src/facial_auth/cli.py:218
 msgid ""
 "Turn your head clearly to your right, then to your left, then look at the "
 "camera."
@@ -325,7 +349,7 @@ msgstr ""
 "Tournez nettement la tête vers votre droite, puis vers votre gauche, puis "
 "regardez la caméra."
 
-#: src/facial_auth/cli.py:198
+#: src/facial_auth/cli.py:219
 msgid ""
 "Turn your head clearly to your left, then to your right, then look at the "
 "camera."
@@ -333,11 +357,11 @@ msgstr ""
 "Tournez nettement la tête vers votre gauche, puis vers votre droite, puis "
 "regardez la caméra."
 
-#: src/facial_auth/cli.py:208
+#: src/facial_auth/cli.py:229
 msgid "Good. Now look straight at the camera."
 msgstr "Bien. Maintenant, regardez la caméra bien en face."
 
-#: src/facial_auth/cli.py:215
+#: src/facial_auth/cli.py:236
 msgid ""
 "You did not turn far enough: turn your head clearly (about 15 to 20 degrees, "
 "as if looking at the edge of the screen) to each side."
@@ -345,7 +369,7 @@ msgstr ""
 "Vous n'avez pas tourné assez loin : tournez nettement la tête (environ 15 à "
 "20 degrés, comme pour regarder le bord de l'écran) de chaque côté."
 
-#: src/facial_auth/cli.py:217
+#: src/facial_auth/cli.py:238
 msgid ""
 "A movement was seen, but not towards the side that was asked first: turn "
 "your head to your own left or right as told (if the picture is mirrored, set "
@@ -355,14 +379,14 @@ msgstr ""
 "vers votre propre gauche ou droite, comme indiqué (si l'image est en miroir, "
 "mettez liveness.mirror = true)."
 
-#: src/facial_auth/cli.py:220
+#: src/facial_auth/cli.py:241
 msgid ""
 "The turn was too quick to be followed: pause for half a second at each side."
 msgstr ""
 "Le mouvement était trop rapide pour être suivi : marquez une pause d'une "
 "demi-seconde de chaque côté."
 
-#: src/facial_auth/cli.py:221
+#: src/facial_auth/cli.py:242
 msgid ""
 "The first turn was seen, not the second: turn clearly to the other side too, "
 "without hurrying and without stopping half way."
@@ -370,7 +394,7 @@ msgstr ""
 "Le premier mouvement a été vu, pas le second : tournez aussi nettement de "
 "l'autre côté, sans vous presser et sans vous arrêter à mi-course."
 
-#: src/facial_auth/cli.py:223
+#: src/facial_auth/cli.py:244
 msgid ""
 "Both turns were seen, but your face was not recognised again looking at the "
 "camera: look straight at it, in good light (a stricter recognition level "
@@ -380,45 +404,45 @@ msgstr ""
 "nouveau en regardant la caméra : regardez-la bien en face, avec une bonne "
 "lumière (un niveau de reconnaissance plus strict rend cela plus difficile)."
 
-#: src/facial_auth/cli.py:226
+#: src/facial_auth/cli.py:247
 msgid "Your face left the picture during the movement."
 msgstr "Votre visage est sorti de l'image pendant le mouvement."
 
-#: src/facial_auth/cli.py:227
+#: src/facial_auth/cli.py:248
 msgid "The face seen during the movement was not yours."
 msgstr "Le visage vu pendant le mouvement n'était pas le vôtre."
 
-#: src/facial_auth/cli.py:228
+#: src/facial_auth/cli.py:249
 msgid ""
 "Not enough detail could be followed on your face: more light, or come closer."
 msgstr ""
 "Pas assez de détails à suivre sur votre visage : plus de lumière, ou "
 "rapprochez-vous."
 
-#: src/facial_auth/cli.py:229
+#: src/facial_auth/cli.py:250
 msgid "The face looked flat, like a picture."
 msgstr "Le visage paraissait plat, comme une image."
 
-#: src/facial_auth/cli.py:258 src/facial_auth/gui/app.py:310
+#: src/facial_auth/cli.py:279 src/facial_auth/gui/app.py:346
 msgid "Look at the camera..."
 msgstr "Regardez la caméra..."
 
-#: src/facial_auth/cli.py:268
+#: src/facial_auth/cli.py:289
 #, python-format
 msgid "Recognised (%s camera, similarity %.2f, %.1fs)."
 msgstr "Reconnu (caméra %s, similarité %.2f, %.1f s)."
 
-#: src/facial_auth/cli.py:270
+#: src/facial_auth/cli.py:291
 #, python-format
 msgid "Not recognised (%s)."
 msgstr "Non reconnu (%s)."
 
-#: src/facial_auth/cli.py:276
+#: src/facial_auth/cli.py:297
 #, python-format
 msgid "Head-turn measurements: %s"
 msgstr "Mesures du défi de tête : %s"
 
-#: src/facial_auth/cli.py:282 src/facial_auth/gui/app.py:282
+#: src/facial_auth/cli.py:303 src/facial_auth/gui/app.py:318
 msgid ""
 "Infrared camera check: first look at the camera, with nothing in front of "
 "it..."
@@ -426,7 +450,7 @@ msgstr ""
 "Vérification de la caméra infrarouge : regardez d'abord la caméra, sans rien "
 "devant..."
 
-#: src/facial_auth/cli.py:286 src/facial_auth/gui/app.py:285
+#: src/facial_auth/cli.py:307 src/facial_auth/gui/app.py:321
 msgid ""
 "Now hold a phone close to the lens, screen on, showing a bright white page, "
 "for about 5 seconds."
@@ -434,17 +458,17 @@ msgstr ""
 "Maintenant, tenez un téléphone près de l'objectif, écran allumé, affichant "
 "une page blanche lumineuse, pendant environ 5 secondes."
 
-#: src/facial_auth/cli.py:293
+#: src/facial_auth/cli.py:314
 #, python-format
 msgid "✔ %s does not see the phone screen: it is a real infrared camera."
 msgstr ""
 "✔ %s ne voit pas l'écran du téléphone : c'est bien une caméra infrarouge."
 
-#: src/facial_auth/cli.py:294
+#: src/facial_auth/cli.py:315
 msgid "Services that require infrared accept it from now on."
 msgstr "Les services qui exigent l'infrarouge l'acceptent désormais."
 
-#: src/facial_auth/cli.py:297
+#: src/facial_auth/cli.py:318
 #, python-format
 msgid ""
 "✘ %s saw the phone screen: it is not an infrared camera, a photograph shown "
@@ -453,7 +477,7 @@ msgstr ""
 "✘ %s a vu l'écran du téléphone : ce n'est pas une caméra infrarouge, une "
 "photo affichée sur un téléphone la tromperait."
 
-#: src/facial_auth/cli.py:299
+#: src/facial_auth/cli.py:320
 msgid ""
 "Services that require infrared will not accept it. Use another camera, or "
 "allow the colour webcam knowingly (docs/SECURITY.md)."
@@ -461,144 +485,146 @@ msgstr ""
 "Les services qui exigent l'infrarouge ne l'accepteront pas. Utilisez une "
 "autre caméra, ou autorisez sciemment la webcam couleur (docs/SECURITY.md)."
 
-#: src/facial_auth/cli.py:302
+#: src/facial_auth/cli.py:323
 msgid "Nothing seems to have been held in front of the camera."
 msgstr "Rien ne semble avoir été présenté devant la caméra."
 
-#: src/facial_auth/cli.py:303
+#: src/facial_auth/cli.py:324
 msgid "The camera gave too few pictures."
 msgstr "La caméra a fourni trop peu d'images."
 
-#: src/facial_auth/cli.py:303
+#: src/facial_auth/cli.py:324
 msgid "The result is ambiguous."
 msgstr "Le résultat est ambigu."
 
-#: src/facial_auth/cli.py:304
+#: src/facial_auth/cli.py:325
 #, python-format
 msgid ""
 "? %s Try again, with the screen close to the lens and at full brightness."
 msgstr "? %s Recommencez, l'écran près de l'objectif et à pleine luminosité."
 
-#: src/facial_auth/cli.py:320
+#: src/facial_auth/cli.py:341
 #, python-format
 msgid "Service %s: %s"
 msgstr "Service %s : %s"
 
-#: src/facial_auth/cli.py:354
+#: src/facial_auth/cli.py:375
 msgid "Run this command as root: sudo facial-auth fetch-models"
 msgstr "Exécutez cette commande en root : sudo facial-auth fetch-models"
 
-#: src/facial_auth/cli.py:365
+#: src/facial_auth/cli.py:386
 #, python-format
 msgid "Download failed: %s"
 msgstr "Échec du téléchargement : %s"
 
-#: src/facial_auth/cli.py:368
+#: src/facial_auth/cli.py:389
 #, python-format
 msgid "installed %s"
 msgstr "installé : %s"
 
-#: src/facial_auth/cli.py:377
+#: src/facial_auth/cli.py:398
 msgid "Run this command as root: sudo facial-auth purge-orphans"
 msgstr "Exécutez cette commande en root : sudo facial-auth purge-orphans"
 
-#: src/facial_auth/cli.py:386
+#: src/facial_auth/cli.py:408
 msgid "No orphaned face data."
 msgstr "Aucune donnée de visage orpheline."
 
-#: src/facial_auth/cli.py:388
+#: src/facial_auth/cli.py:410
 msgid "Face data that no longer belongs to the account it was enrolled for:"
-msgstr "Données de visage qui n'appartiennent plus au compte pour lequel elles ont été enregistrées :"
+msgstr ""
+"Données de visage qui n'appartiennent plus au compte pour lequel elles ont "
+"été enregistrées :"
 
-#: src/facial_auth/cli.py:390
+#: src/facial_auth/cli.py:412
 #, python-format
 msgid "the account is now called '%s'"
 msgstr "le compte s'appelle maintenant « %s »"
 
-#: src/facial_auth/cli.py:390
+#: src/facial_auth/cli.py:412
 msgid "no such account"
 msgstr "ce compte n'existe plus"
 
-#: src/facial_auth/cli.py:391
+#: src/facial_auth/cli.py:413
 #, python-format
 msgid "enrolled for '%s'"
 msgstr "enregistré pour « %s »"
 
-#: src/facial_auth/cli.py:393
+#: src/facial_auth/cli.py:415
 msgid "Nothing was removed (--dry-run)."
 msgstr "Rien n'a été supprimé (--dry-run)."
 
-#: src/facial_auth/cli.py:397
+#: src/facial_auth/cli.py:419
 msgid "Run again with --yes to delete this data."
 msgstr "Relancez avec --yes pour supprimer ces données."
 
-#: src/facial_auth/cli.py:399
+#: src/facial_auth/cli.py:421
 msgid "Delete this data? [y/N] "
 msgstr "Supprimer ces données ? [o/N] "
 
-#: src/facial_auth/cli.py:401
+#: src/facial_auth/cli.py:423
 #, python-format
 msgid "%d record(s) removed."
 msgstr "%d enregistrement(s) supprimé(s)."
 
-#: src/facial_auth/cli.py:421
+#: src/facial_auth/cli.py:443
 msgid "not installed"
 msgstr "non installé"
 
-#: src/facial_auth/cli.py:429
+#: src/facial_auth/cli.py:451
 #, python-format
 msgid "%s crashed the loader (signal %d)"
 msgstr "%s a fait planter le chargeur (signal %d)"
 
-#: src/facial_auth/cli.py:430
+#: src/facial_auth/cli.py:452
 #, python-format
 msgid "%s cannot be loaded"
 msgstr "%s ne peut pas être chargé"
 
-#: src/facial_auth/cli.py:448
+#: src/facial_auth/cli.py:470
 #, python-format
 msgid "Models (%s + %s) in %s"
 msgstr "Modèles (%s + %s) dans %s"
 
-#: src/facial_auth/cli.py:449
+#: src/facial_auth/cli.py:471
 msgid "sudo facial-auth fetch-models   (offline: --from DIR)"
 msgstr "sudo facial-auth fetch-models   (hors ligne : --from DOSSIER)"
 
-#: src/facial_auth/cli.py:453
+#: src/facial_auth/cli.py:475
 #, python-format
 msgid "PAM socket %s"
 msgstr "Socket PAM %s"
 
-#: src/facial_auth/cli.py:453
+#: src/facial_auth/cli.py:475
 msgid "sudo systemctl enable --now facial-authd.socket"
 msgstr "sudo systemctl enable --now facial-authd.socket"
 
-#: src/facial_auth/cli.py:457
+#: src/facial_auth/cli.py:479
 msgid "PAM module loads"
 msgstr "Le module PAM se charge"
 
-#: src/facial_auth/cli.py:457
+#: src/facial_auth/cli.py:479
 #, python-format
 msgid "PAM module: %s"
 msgstr "Module PAM : %s"
 
-#: src/facial_auth/cli.py:458
+#: src/facial_auth/cli.py:480
 msgid "sudo apt install --reinstall facial-auth"
 msgstr "sudo apt install --reinstall facial-auth"
 
-#: src/facial_auth/cli.py:459
+#: src/facial_auth/cli.py:481
 msgid "PAM stack integration (common-auth)"
 msgstr "Intégration à la pile PAM (common-auth)"
 
-#: src/facial_auth/cli.py:459
+#: src/facial_auth/cli.py:481
 msgid "sudo pam-auth-update --enable facial-auth"
 msgstr "sudo pam-auth-update --enable facial-auth"
 
-#: src/facial_auth/cli.py:461
+#: src/facial_auth/cli.py:483
 msgid "The damaged module is in the authentication stack"
 msgstr "Le module endommagé figure dans la pile d'authentification"
 
-#: src/facial_auth/cli.py:462
+#: src/facial_auth/cli.py:484
 msgid ""
 "sudo pam-auth-update --package --remove facial-auth   (password login is "
 "unaffected)"
@@ -606,23 +632,23 @@ msgstr ""
 "sudo pam-auth-update --package --remove facial-auth   (la connexion par mot "
 "de passe n'est pas affectée)"
 
-#: src/facial_auth/cli.py:463
+#: src/facial_auth/cli.py:485
 msgid "polkit policy installed"
 msgstr "Politique polkit installée"
 
-#: src/facial_auth/cli.py:467
+#: src/facial_auth/cli.py:489
 #, python-format
 msgid "Daemon reachable (up %ds)"
 msgstr "Démon joignable (actif depuis %d s)"
 
-#: src/facial_auth/cli.py:469
+#: src/facial_auth/cli.py:491
 msgid ""
 "Plug a camera, or check that the 'facial-auth' user is in the 'video' group"
 msgstr ""
 "Branchez une caméra, ou vérifiez que l'utilisateur « facial-auth » est dans "
 "le groupe « video »"
 
-#: src/facial_auth/cli.py:471
+#: src/facial_auth/cli.py:493
 msgid ""
 "Only a colour webcam: a photograph shown on a phone fools it, so by default "
 "no service uses the face."
@@ -630,11 +656,11 @@ msgstr ""
 "Seulement une webcam couleur : une photo affichée sur un téléphone la "
 "trompe, donc par défaut aucun service n'utilise le visage."
 
-#: src/facial_auth/cli.py:473
+#: src/facial_auth/cli.py:495
 msgid "An infrared camera is recommended (see docs/SECURITY.md)"
 msgstr "Une caméra infrarouge est recommandée (voir docs/SECURITY.md)"
 
-#: src/facial_auth/cli.py:477
+#: src/facial_auth/cli.py:499
 msgid ""
 "This \"infrared\" camera sees a phone screen: a photograph on a phone would "
 "fool it"
@@ -642,17 +668,17 @@ msgstr ""
 "Cette caméra « infrarouge » voit un écran de téléphone : une photo sur un "
 "téléphone la tromperait"
 
-#: src/facial_auth/cli.py:478
+#: src/facial_auth/cli.py:500
 msgid "Use another camera, or set camera.require_ir_check = false knowingly"
 msgstr ""
 "Utilisez une autre caméra, ou mettez camera.require_ir_check = false en "
 "connaissance de cause"
 
-#: src/facial_auth/cli.py:480
+#: src/facial_auth/cli.py:502
 msgid "Infrared camera verified"
 msgstr "Caméra infrarouge vérifiée"
 
-#: src/facial_auth/cli.py:481
+#: src/facial_auth/cli.py:503
 msgid ""
 "facial-auth check-camera   (until then, no service that needs infrared uses "
 "the face)"
@@ -660,114 +686,123 @@ msgstr ""
 "facial-auth check-camera   (d'ici là, aucun service exigeant l'infrarouge "
 "n'utilise le visage)"
 
-#: src/facial_auth/cli.py:482
+#: src/facial_auth/cli.py:504
 msgid "Daemon sees the models"
 msgstr "Le démon voit les modèles"
 
-#: src/facial_auth/cli.py:484
+#: src/facial_auth/cli.py:506
 #, python-format
 msgid "Linked accounts: %s"
 msgstr "Comptes liés : %s"
 
-#: src/facial_auth/cli.py:485
+#: src/facial_auth/cli.py:507
 msgid "facial-auth add --user NAME   (or open the 'Face Login' settings app)"
 msgstr ""
 "facial-auth add --user NOM   (ou ouvrez l'application « Connexion par le "
 "visage »)"
 
-#: src/facial_auth/cli.py:487
+#: src/facial_auth/cli.py:509
 msgid "Daemon reachable"
 msgstr "Démon joignable"
 
-#: src/facial_auth/cli.py:492
+#: src/facial_auth/cli.py:514
 msgid "Face authentication for Ubuntu"
 msgstr "Authentification faciale pour Ubuntu"
 
-#: src/facial_auth/cli.py:499
+#: src/facial_auth/cli.py:521
 msgid "account (default: you)"
 msgstr "compte (par défaut : vous)"
 
-#: src/facial_auth/cli.py:503
+#: src/facial_auth/cli.py:525
 msgid "show the state of the service"
 msgstr "afficher l'état du service"
 
-#: src/facial_auth/cli.py:504
+#: src/facial_auth/cli.py:526
 msgid "list detected cameras"
 msgstr "lister les caméras détectées"
 
-#: src/facial_auth/cli.py:505
+#: src/facial_auth/cli.py:527
+msgid "list the accounts that can have a face, or look one up by its login"
+msgstr "lister les comptes qui peuvent avoir un visage, ou en retrouver un par son identifiant"
+
+#: src/facial_auth/cli.py:528
+msgid "login of the account to look up"
+msgstr "identifiant du compte à retrouver"
+
+#: src/facial_auth/cli.py:529
 msgid "list linked faces"
 msgstr "lister les visages liés"
 
-#: src/facial_auth/cli.py:506
+#: src/facial_auth/cli.py:530
 msgid "take photos with the camera and link the face to an account"
 msgstr "prendre des photos avec la caméra et lier le visage à un compte"
 
-#: src/facial_auth/cli.py:510
+#: src/facial_auth/cli.py:534
 msgid "link a face from photos (e.g. taken with the Camera app)"
 msgstr ""
 "lier un visage à partir de photos (p. ex. prises avec l'application Caméra)"
 
-#: src/facial_auth/cli.py:514
+#: src/facial_auth/cli.py:538
 msgid "remove one face"
 msgstr "supprimer un visage"
 
-#: src/facial_auth/cli.py:516
+#: src/facial_auth/cli.py:540
 msgid "remove every face of an account"
 msgstr "supprimer tous les visages d'un compte"
 
-#: src/facial_auth/cli.py:518
+#: src/facial_auth/cli.py:542
 msgid "enable face authentication for an account"
 msgstr "activer l'authentification faciale pour un compte"
 
-#: src/facial_auth/cli.py:519
+#: src/facial_auth/cli.py:543
 msgid "disable face authentication for an account"
 msgstr "désactiver l'authentification faciale pour un compte"
 
-#: src/facial_auth/cli.py:520
+#: src/facial_auth/cli.py:544
 msgid "check that the infrared camera does not see a phone screen"
 msgstr "vérifie que la caméra infrarouge ne voit pas un écran de téléphone"
 
-#: src/facial_auth/cli.py:521
+#: src/facial_auth/cli.py:545
 msgid "check that the camera recognises you"
 msgstr "vérifier que la caméra vous reconnaît"
 
-#: src/facial_auth/cli.py:524
+#: src/facial_auth/cli.py:548
 msgid "also print the head-turn measurements (to tune liveness.challenge_turn)"
 msgstr ""
 "affiche aussi les mesures du défi de tête (pour régler liveness."
 "challenge_turn)"
 
-#: src/facial_auth/cli.py:525
+#: src/facial_auth/cli.py:549
 msgid "show or set where the face may be used (sudo, gdm-password...)"
 msgstr ""
 "afficher ou régler où le visage peut être utilisé (sudo, gdm-password...)"
 
-#: src/facial_auth/cli.py:528
+#: src/facial_auth/cli.py:552
 msgid "show or change a setting (e.g. recognition.threshold 0.5)"
 msgstr "afficher ou modifier un réglage (p. ex. recognition.threshold 0.5)"
 
-#: src/facial_auth/cli.py:531
+#: src/facial_auth/cli.py:555
 msgid "download the face models (root)"
 msgstr "télécharger les modèles de reconnaissance (root)"
 
-#: src/facial_auth/cli.py:532
+#: src/facial_auth/cli.py:556
 msgid "install from a directory (offline)"
 msgstr "installer depuis un dossier (hors ligne)"
 
-#: src/facial_auth/cli.py:534
+#: src/facial_auth/cli.py:558
 msgid "remove face data of deleted or renamed accounts (root)"
-msgstr "supprimer les données de visage des comptes supprimés ou renommés (root)"
+msgstr ""
+"supprimer les données de visage des comptes supprimés ou renommés (root)"
 
-#: src/facial_auth/cli.py:536
+#: src/facial_auth/cli.py:560
 msgid "only list what would be removed"
 msgstr "se contenter de lister ce qui serait supprimé"
 
-#: src/facial_auth/cli.py:538
+#: src/facial_auth/cli.py:562
 msgid "diagnose the installation"
 msgstr "diagnostiquer l'installation"
 
-#: src/facial_auth/cli.py:550
+#: src/facial_auth/cli.py:574
 #, python-format
 msgid "Error: %s"
 msgstr "Erreur : %s"
@@ -833,55 +868,55 @@ msgstr "Standard"
 msgid "Strict (fewer false accepts, more retries)"
 msgstr "Strict (moins de faux positifs, plus d'essais)"
 
-#: src/facial_auth/gui/app.py:42 src/facial_auth/gui/app.py:64
+#: src/facial_auth/gui/app.py:46 src/facial_auth/gui/app.py:69
 msgid "Face Login"
 msgstr "Connexion par le visage"
 
-#: src/facial_auth/gui/app.py:58
+#: src/facial_auth/gui/app.py:63
 msgid "Refresh"
 msgstr "Actualiser"
 
-#: src/facial_auth/gui/app.py:67 src/facial_auth/gui/app.py:76
-#: src/facial_auth/gui/app.py:155 src/facial_auth/gui/enroll.py:79
+#: src/facial_auth/gui/app.py:72 src/facial_auth/gui/app.py:81
+#: src/facial_auth/gui/app.py:160 src/facial_auth/gui/enroll.py:79
 msgid "Camera"
 msgstr "Caméra"
 
-#: src/facial_auth/gui/app.py:67
+#: src/facial_auth/gui/app.py:72
 msgid "Looking for a camera..."
 msgstr "Recherche d'une caméra..."
 
-#: src/facial_auth/gui/app.py:69
+#: src/facial_auth/gui/app.py:74
 msgid "Verify"
 msgstr "Vérifier"
 
-#: src/facial_auth/gui/app.py:70
+#: src/facial_auth/gui/app.py:75
 msgid "Show the camera a phone screen: an infrared camera does not see it"
 msgstr ""
 "Montrer un écran de téléphone à la caméra : une caméra infrarouge ne le voit "
 "pas"
 
-#: src/facial_auth/gui/app.py:73
+#: src/facial_auth/gui/app.py:78
 msgid "Sign in with my face"
 msgstr "Me connecter avec mon visage"
 
-#: src/facial_auth/gui/app.py:74
+#: src/facial_auth/gui/app.py:79
 msgid "The password always remains available"
 msgstr "Le mot de passe reste toujours disponible"
 
-#: src/facial_auth/gui/app.py:82
+#: src/facial_auth/gui/app.py:87
 msgid "Accounts"
 msgstr "Comptes"
 
-#: src/facial_auth/gui/app.py:83
+#: src/facial_auth/gui/app.py:88
 msgid "Linking a face to an account requires an administrator's password."
 msgstr ""
 "Lier un visage à un compte nécessite le mot de passe d'un administrateur."
 
-#: src/facial_auth/gui/app.py:87
+#: src/facial_auth/gui/app.py:92
 msgid "Where can the face be used?"
 msgstr "Où le visage peut-il être utilisé ?"
 
-#: src/facial_auth/gui/app.py:88
+#: src/facial_auth/gui/app.py:93
 msgid ""
 "A colour webcam is fooled by a photograph shown on a phone: by default every "
 "service needs a verified infrared camera. Allowing any camera is your call."
@@ -890,141 +925,143 @@ msgstr ""
 "défaut chaque service exige une caméra infrarouge vérifiée. Autoriser toute "
 "caméra est votre choix."
 
-#: src/facial_auth/gui/app.py:98
+#: src/facial_auth/gui/app.py:103
 msgid "Security level"
 msgstr "Niveau de sécurité"
 
-#: src/facial_auth/gui/app.py:99
+#: src/facial_auth/gui/app.py:104
 msgid "Recognition strictness"
 msgstr "Rigueur de la reconnaissance"
 
-#: src/facial_auth/gui/app.py:131
+#: src/facial_auth/gui/app.py:136
 msgid "OK"
 msgstr "OK"
 
-#: src/facial_auth/gui/app.py:151
+#: src/facial_auth/gui/app.py:156
 msgid "No usable camera was found."
 msgstr "Aucune caméra utilisable n'a été trouvée."
 
-#: src/facial_auth/gui/app.py:158
+#: src/facial_auth/gui/app.py:163
 msgid "Colour webcam: a photograph shown on a phone fools it"
 msgstr "Webcam couleur : une photo affichée sur un téléphone la trompe"
 
-#: src/facial_auth/gui/app.py:160
+#: src/facial_auth/gui/app.py:165
 msgid "Infrared camera: robust against photographs"
 msgstr "Caméra infrarouge : résiste aux photographies"
 
-#: src/facial_auth/gui/app.py:162
+#: src/facial_auth/gui/app.py:167
 msgid ""
 "This \"infrared\" camera sees a phone screen: a photograph would fool it"
 msgstr ""
 "Cette caméra « infrarouge » voit un écran de téléphone : une photo la "
 "tromperait"
 
-#: src/facial_auth/gui/app.py:164
+#: src/facial_auth/gui/app.py:169
 msgid "Infrared camera not verified yet: face login waits for the check"
 msgstr ""
 "Caméra infrarouge pas encore vérifiée : la connexion par le visage attend la "
 "vérification"
 
-#: src/facial_auth/gui/app.py:169
+#: src/facial_auth/gui/app.py:174
 msgid "No camera"
 msgstr "Aucune caméra"
 
-#: src/facial_auth/gui/app.py:170
+#: src/facial_auth/gui/app.py:175
 msgid "Plug in a webcam or check the 'video' group"
 msgstr "Branchez une webcam ou vérifiez le groupe « video »"
 
-#: src/facial_auth/gui/app.py:207
+#: src/facial_auth/gui/app.py:216
+#, python-format
+msgid "%d more accounts are not shown. "
+msgstr "%d autres comptes ne sont pas affichés. "
+
+#: src/facial_auth/gui/app.py:218
+msgid "Another account?"
+msgstr "Un autre compte ?"
+
+#: src/facial_auth/gui/app.py:219
+msgid ""
+"Add a face, then choose the account in the next step: the list there can be "
+"searched, and the login of an account that is not listed can be typed."
+msgstr "Ajoutez un visage, puis choisissez le compte à l'étape suivante : la liste y est consultable par recherche, et l'identifiant d'un compte absent de la liste peut y être saisi."
+
+#: src/facial_auth/gui/app.py:235
 msgid " (you)"
 msgstr " (vous)"
 
-#: src/facial_auth/gui/app.py:211 src/facial_auth/gui/enroll.py:46
+#: src/facial_auth/gui/app.py:239 src/facial_auth/gui/enroll.py:46
 msgid "Add a face"
 msgstr "Ajouter un visage"
 
-#: src/facial_auth/gui/app.py:221
-msgid "no face linked"
-msgstr "aucun visage lié"
-
-#: src/facial_auth/gui/app.py:222
+#: src/facial_auth/gui/app.py:252
 #, python-format
 msgid " — locked for %d s"
 msgstr " — verrouillé pendant %d s"
 
-#: src/facial_auth/gui/app.py:223
-#, python-format
-msgid "%d face(s)"
-msgstr "%d visage(s)"
-
-#: src/facial_auth/gui/app.py:223
-msgid " (disabled)"
-msgstr " (désactivé)"
-
-#: src/facial_auth/gui/app.py:235
+#: src/facial_auth/gui/app.py:271
 msgid "Infrared"
 msgstr "Infrarouge"
 
-#: src/facial_auth/gui/app.py:235
+#: src/facial_auth/gui/app.py:271
 msgid "Colour camera"
 msgstr "Caméra couleur"
 
-#: src/facial_auth/gui/app.py:236
+#: src/facial_auth/gui/app.py:272
 #, python-format
 msgid "%d photos"
 msgstr "%d photos"
 
-#: src/facial_auth/gui/app.py:238
+#: src/facial_auth/gui/app.py:274
 msgid "Remove this face"
 msgstr "Supprimer ce visage"
 
-#: src/facial_auth/gui/app.py:244
+#: src/facial_auth/gui/app.py:280
 msgid "Use the face for this account"
 msgstr "Utiliser le visage pour ce compte"
 
-#: src/facial_auth/gui/app.py:248
+#: src/facial_auth/gui/app.py:284
 msgid "Test"
 msgstr "Tester"
 
-#: src/facial_auth/gui/app.py:265
+#: src/facial_auth/gui/app.py:301
 msgid "Remove this face?"
 msgstr "Supprimer ce visage ?"
 
-#: src/facial_auth/gui/app.py:266
+#: src/facial_auth/gui/app.py:302
 msgid "You will no longer be able to sign in with it."
 msgstr "Vous ne pourrez plus vous connecter avec."
 
-#: src/facial_auth/gui/app.py:267
+#: src/facial_auth/gui/app.py:303
 msgid "Cancel"
 msgstr "Annuler"
 
-#: src/facial_auth/gui/app.py:268 src/facial_auth/gui/enroll.py:290
+#: src/facial_auth/gui/app.py:304 src/facial_auth/gui/enroll.py:290
 msgid "Remove"
 msgstr "Supprimer"
 
-#: src/facial_auth/gui/app.py:274
+#: src/facial_auth/gui/app.py:310
 msgid "Face removed"
 msgstr "Visage supprimé"
 
-#: src/facial_auth/gui/app.py:295
+#: src/facial_auth/gui/app.py:331
 msgid "The camera does not see the phone screen: it is infrared."
 msgstr "La caméra ne voit pas l'écran du téléphone : elle est bien infrarouge."
 
-#: src/facial_auth/gui/app.py:296
+#: src/facial_auth/gui/app.py:332
 msgid "The camera saw the phone screen: it is not infrared."
 msgstr "La caméra a vu l'écran du téléphone : elle n'est pas infrarouge."
 
-#: src/facial_auth/gui/app.py:297
+#: src/facial_auth/gui/app.py:333
 msgid "Inconclusive: hold the screen close to the lens and try again."
 msgstr "Non concluant : approchez l'écran de l'objectif et recommencez."
 
 #. a toast is too short to read what to change
-#: src/facial_auth/gui/app.py:321 src/facial_auth/gui/app.py:324
+#: src/facial_auth/gui/app.py:357 src/facial_auth/gui/app.py:360
 #, python-format
 msgid "Not recognised (%s)"
 msgstr "Non reconnu (%s)"
 
-#: src/facial_auth/gui/app.py:323
+#: src/facial_auth/gui/app.py:359
 #, python-format
 msgid "Recognised (similarity %.2f)"
 msgstr "Reconnu (similarité %.2f)"
@@ -1154,44 +1191,54 @@ msgstr ""
 msgid "Account"
 msgstr "Compte"
 
-#: src/facial_auth/gui/enroll.py:360
+#. an account the list does not show (a directory account): its login is typed here
+#: src/facial_auth/gui/enroll.py:362
+msgid "Another account (login)"
+msgstr "Autre compte (identifiant)"
+
+#: src/facial_auth/gui/enroll.py:364
 msgid "Name of this face"
 msgstr "Nom de ce visage"
 
-#: src/facial_auth/gui/enroll.py:360 src/facial_auth/gui/enroll.py:401
+#: src/facial_auth/gui/enroll.py:364 src/facial_auth/gui/enroll.py:433
 msgid "My face"
 msgstr "Mon visage"
 
-#: src/facial_auth/gui/enroll.py:361
+#: src/facial_auth/gui/enroll.py:365
 msgid "Photos"
 msgstr "Photos"
 
-#: src/facial_auth/gui/enroll.py:367
+#: src/facial_auth/gui/enroll.py:372
 msgid "Link this face to the account"
 msgstr "Lier ce visage au compte"
 
-#: src/facial_auth/gui/enroll.py:392
+#: src/facial_auth/gui/enroll.py:395
 msgid "infrared camera"
 msgstr "caméra infrarouge"
 
-#: src/facial_auth/gui/enroll.py:392
+#: src/facial_auth/gui/enroll.py:395
 msgid "colour camera"
 msgstr "caméra couleur"
 
-#: src/facial_auth/gui/enroll.py:393
+#: src/facial_auth/gui/enroll.py:396
 #, python-format
 msgid "%d photos from the %s"
 msgstr "%d photos de la %s"
 
-#: src/facial_auth/gui/enroll.py:410
+#: src/facial_auth/gui/enroll.py:426
+#, python-format
+msgid "Account %s found"
+msgstr "Compte %s trouvé"
+
+#: src/facial_auth/gui/enroll.py:442
 msgid "Authentication required"
 msgstr "Authentification requise"
 
-#: src/facial_auth/gui/enroll.py:410
+#: src/facial_auth/gui/enroll.py:442
 msgid "Could not link the face"
 msgstr "Impossible de lier le visage"
 
-#: src/facial_auth/gui/enroll.py:413
+#: src/facial_auth/gui/enroll.py:445
 #, python-format
 msgid "The face is now linked to %s"
 msgstr "Le visage est maintenant lié à %s"

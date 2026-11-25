@@ -87,6 +87,28 @@ def cmd_status(args, c: Client) -> int:
     return 0
 
 
+def account_line(u: dict) -> str:
+    if not u["faces"]:
+        state = _("no face linked")
+    else:
+        state = _("%d face(s)") % u["faces"] + ("" if u["enabled"] else _(" (disabled)"))
+    return f"  {u['name']:<24} {u['realname']:<28} uid {u['uid']:<10} {state}"
+
+
+def cmd_users(args, c: Client) -> int:
+    """What the daemon sees: the accounts it offers, or one account looked up by its login."""
+    if args.name:
+        say(account_line(c.lookup_user(args.name)))
+        return 0
+    users = c.users()
+    say(_("%d account(s) offered by the settings application:") % len(users))
+    for u in users:
+        say(account_line(u))
+    say(_("An account that is not listed (a directory account, for instance) can be looked up by its "
+          "login: facial-auth users LOGIN"))
+    return 0
+
+
 def cmd_cameras(args, c: Client) -> int:
     for cam in c.cameras():
         flags = ("" if cam["usable"] else _(" (not a capture device)")) + (_(" (virtual)") if cam["virtual"] else "")
@@ -502,6 +524,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     add("status", cmd_status, _("show the state of the service"), user=False)
     add("cameras", cmd_cameras, _("list detected cameras"), user=False)
+    p = add("users", cmd_users, _("list the accounts that can have a face, or look one up by its login"), user=False)
+    p.add_argument("name", nargs="?", help=_("login of the account to look up"))
     add("list", cmd_list, _("list linked faces"))
     p = add("add", cmd_add, _("take photos with the camera and link the face to an account"))
     p.add_argument("-l", "--label")

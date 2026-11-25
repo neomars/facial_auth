@@ -30,6 +30,9 @@ class SessionProbe(Protocol):
     def is_remote(self, pid: int) -> bool | None:
         """True: ssh/remote session, False: local, None: unknown."""
 
+    def users(self) -> list[int]:
+        """Uids of the accounts that have a session (or linger) on this machine."""
+
 
 class LogindProbe:
     """Asks systemd-logind whether the caller's session is remote."""
@@ -60,7 +63,21 @@ class LogindProbe:
             log.debug("logind session lookup for pid %s: %s", pid, exc)
             return None
 
+    def users(self) -> list[int]:
+        try:
+            from gi.repository import Gio, GLib
+            res = self._connection().call_sync(LOGIN1, "/org/freedesktop/login1", f"{LOGIN1}.Manager",
+                                               "ListUsers", None, GLib.VariantType("(a(uso))"),
+                                               Gio.DBusCallFlags.NONE, 2000, None)
+            return [int(uid) for uid, _name, _path in res.unpack()[0]]
+        except Exception as exc:  # noqa: BLE001 - logind is optional: the list is just shorter
+            log.debug("logind user list: %s", exc)
+            return []
+
 
 class NullProbe:
     def is_remote(self, pid: int) -> bool | None:
         return None
+
+    def users(self) -> list[int]:
+        return []

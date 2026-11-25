@@ -38,6 +38,11 @@ def _field(name: str, value: str) -> str:
     return value
 
 
+def valid_user_name(name: str) -> bool:
+    """One printable line, no slash, not too long: what may be asked of the user database."""
+    return bool(name) and len(name) <= FIELD_LIMITS["user"] and name.isprintable() and "/" not in name
+
+
 def enc(value: object) -> str:
     """Percent-encode like the C module (RFC 3986 unreserved set)."""
     return quote(str(value), safe="-._~")
@@ -79,7 +84,7 @@ def parse_request(line: str) -> Request:
     if version != PROTO_VERSION:
         raise ProtocolError(f"unsupported protocol version {version}")
     user = _field("user", fields.get("user", ""))
-    if not user or "/" in user:
+    if not valid_user_name(user):
         raise ProtocolError("bad user")
     return Request(user=user, service=_field("service", fields.get("service", "")),
                    tty=_field("tty", fields.get("tty", "")), rhost=_field("rhost", fields.get("rhost", "")),

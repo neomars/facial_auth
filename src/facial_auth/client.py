@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Any
 
 from gi.repository import Gio, GLib
@@ -32,11 +33,18 @@ def _code_of(remote: str | None) -> str:
     return "internal"
 
 
+_REMOTE_PREFIX = re.compile(r"^GDBus\.Error:[A-Za-z0-9_.-]+: ")
+
+
 def _convert(exc: GLib.Error) -> ClientError:
-    """GLib.Error -> ClientError (strip_remote_error edits the error in place)."""
+    """GLib.Error -> ClientError.
+
+    The "GDBus.Error:<name>: " prefix of a remote error is removed by hand: strip_remote_error() does
+    not change the message PyGObject has already copied into ``exc.message``.
+    """
     remote = Gio.DBusError.get_remote_error(exc)
     Gio.DBusError.strip_remote_error(exc)
-    return ClientError(_code_of(remote), exc.message)
+    return ClientError(_code_of(remote), _REMOTE_PREFIX.sub("", exc.message))
 
 
 class Client:
@@ -86,6 +94,9 @@ class Client:
 
     def users(self) -> list[dict]:
         return self.call("ListUsers")[0]
+
+    def lookup_user(self, name: str) -> dict:
+        return self.call("LookupUser", "s", (name,))[0]
 
     def faces(self, user: str) -> list[dict]:
         return self.call("ListFaces", "s", (user,))[0]

@@ -79,6 +79,11 @@ sans test sur un vrai écran de connexion, la valeur sûre est le mode séquenti
   que l'ancien format YuNet (`loc/conf/iou`) : le modèle « 2022mar » y est
   imposé, « 2023mar » à partir d'OpenCV 4.8 (`models.required`). Les modèles sont
   vérifiés par SHA-256 avant chargement.
+* `core.listed_users` / `lookup_user` — les comptes proposés par l'application et la CLI : l'appelant, les
+  comptes qui ont des visages, ceux qui ont une session logind, `[core] extra_users`, puis ce que
+  `getpwall()` énumère (les clients d'annuaire ne l'énumèrent pas par défaut). Un autre compte se retrouve
+  par son identifiant (`LookupUser`, comme `getent passwd`). Réponse bornée (2 000), énumération mémorisée
+  20 s, deux demandes simultanées par appelant : derrière la liste, il peut y avoir un annuaire.
 * `store.py` — embeddings seuls, `faces.json` en 0600 dans un dossier 0700,
   écritures atomiques ; un fichier illisible équivaut à « aucun visage »
   (jamais « n'importe quel visage »). Les visages sont rangés par numéro

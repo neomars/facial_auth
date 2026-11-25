@@ -27,6 +27,14 @@ SCHEMA: dict[tuple[str, str], tuple[str, Any, Any, Any]] = {
     ("core", "enabled"): ("bool", True, None, None),
     ("core", "idle_timeout"): ("float", 900.0, 10.0, 86400.0),
     ("core", "log_level"): ("choice", "info", None, ("debug", "info", "warning", "error")),
+    # Which accounts the settings application offers (see Core.listed_users): the part of the user
+    # database that can be *enumerated* (local files; a directory only when its client enumerates),
+    # between uid_min and uid_max, without accounts that cannot log in.  Accounts with a session on
+    # the machine, with faces, the person using the application and extra_users are always offered.
+    ("core", "list_directory"): ("bool", True, None, None),
+    ("core", "uid_min"): ("int", 1000, 0, 4294967294),
+    ("core", "uid_max"): ("int", 4294967294, 0, 4294967294),
+    ("core", "extra_users"): ("str", "", None, None),
 
     ("camera", "device"): ("str", "auto", None, None),
     ("camera", "preference"): ("choice", "ir-first", None, ("ir-first", "rgb-first", "ir-only", "rgb-only")),

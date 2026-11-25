@@ -273,4 +273,6 @@ l'audit n'a pas trouvée. Ce que chaque point permettait, à qui, et ce qui a é
   fournis par le périphérique).
 * `ListUsers`, les signaux diffusés et les marqueurs `enrolled/` sont lisibles par tout utilisateur local :
   ce sont des informations que la machine publie déjà (liste des comptes, marqueurs en 0644 voulus pour le
-  module PAM).
+  module PAM). `ListUsers` propose aussi, depuis la prise en charge des annuaires, l'appelant et les comptes
+  avec une session ; `LookupUser` ne dit que ce que `getent passwd NOM` dit à n'importe qui, sans
+  autorisation, avec deux recherches simultanées au plus par appelant (derrière, il peut y avoir un annuaire).

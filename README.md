@@ -138,6 +138,43 @@ biométriques et les modèles.
 Réglages : `/etc/facial-auth/facial-auth.conf` (toutes les options et leurs
 valeurs par défaut : `/usr/share/facial-auth/defaults.conf`).
 
+## Comptes d'annuaire (LDAP, SSSD, Active Directory)
+
+Un compte qui vient d'un annuaire fonctionne comme un compte local, à une différence près : les clients
+d'annuaire (SSSD, nslcd, winbind) **n'énumèrent pas** l'annuaire par défaut (ce serait lent et inutile),
+si bien que la liste du système ne contient que les comptes locaux. L'application propose donc, dans
+l'ordre :
+
+1. **votre propre compte** (celui avec lequel vous ouvrez l'application) : cliquez sur « Ajouter un
+   visage » en face de « (vous) » ; l'enregistrement demande ensuite le mot de passe d'un administrateur ;
+2. les comptes qui ont déjà des visages, ceux qui ont une session sur la machine, ceux que vous nommez dans
+   `[core] extra_users` (identifiants séparés par des virgules ou des espaces) ;
+3. tout ce que le système énumère (si SSSD est réglé avec `enumerate = true`, tout l'annuaire : à réserver
+   aux petits annuaires ; `list_directory = false` coupe cette énumération pour un annuaire immense) ;
+4. **n'importe quel autre compte**, en tapant son identifiant dans « Autre compte (identifiant) » à l'étape
+   « Lier ce visage à un compte » : le démon interroge le système, comme `getent passwd IDENTIFIANT`.
+
+Pour voir ce que le démon voit, et diagnostiquer un compte absent :
+
+```bash
+facial-auth users                      # les comptes proposés
+facial-auth users jdupont              # un compte, retrouvé par son identifiant
+sudo -u facial-auth getent passwd jdupont   # la même question, posée avec le compte du démon
+sudo facial-auth add --user jdupont    # ou enregistrer le visage en ligne de commande
+```
+
+À savoir :
+
+* le démon ne peut ouvrir que des sockets Unix (`RestrictAddressFamilies=AF_UNIX`) : il retrouve un compte
+  par SSSD, nslcd ou winbind, qui parlent à leur propre service par une socket Unix, pas par un module NSS qui
+  contacterait lui-même le serveur LDAP ;
+* les numéros d'utilisateur des annuaires dépassent souvent 60 000 : la liste n'a plus de plafond
+  (`[core] uid_min` et `uid_max` le règlent) ;
+* le module PAM cherche le visage sous le nom tel qu'il est saisi à l'écran de connexion : un annuaire qui
+  ignore la casse ou accepte un nom court *et* un nom qualifié (`jdupont`, `JDupont`, `jdupont@exemple.fr`)
+  peut donc, avec une autre graphie que le nom canonique, donner « pas de visage » (le mot de passe reste
+  demandé) : saisissez l'identifiant tel que le donne `facial-auth users`.
+
 ## Ce qui a été vérifié — et ce qui ne l'a pas été
 
 Vérifié dans un conteneur Ubuntu 24.04 (419 tests automatisés, plus le parcours graphique sous Xvfb) :

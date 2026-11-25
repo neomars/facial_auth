@@ -30,6 +30,10 @@ SERVICES = [
 CAMERA_CHOICES = [("any", _("Any camera (less safe)")),
                   ("ir", _("Verified infrared only")), ("off", _("Password only"))]
 SECURITY_LEVELS = [(0.45, _("Standard")), (0.55, _("Strict (fewer false accepts, more retries)"))]
+# A directory can hold thousands of accounts: the window shows the ones that matter (yours, the ones
+# that have faces), then others up to this number.  The account chooser of the enrolment page lists
+# all of them, with a search field, and any other account can be typed there.
+MAX_ACCOUNT_ROWS = 100
 
 
 def format_error(err: ClientError) -> str:
@@ -44,6 +48,7 @@ class Window(Adw.ApplicationWindow):
         self.status: dict = {}
         self.config: dict = {}
         self._rows: list[Gtk.Widget] = []
+        self._more_row: Gtk.Widget | None = None
         self._building = False
 
         self.toasts = Adw.ToastOverlay()
@@ -192,16 +197,39 @@ class Window(Adw.ApplicationWindow):
         for row in self._rows:
             self.accounts.remove(row)
         self._rows.clear()
+        if self._more_row is not None:
+            self.accounts.remove(self._more_row)
+            self._more_row = None
         me = GLib.get_user_name()
-        users = sorted(out[0], key=lambda u: (u["name"] != me, u["uid"]))
-        for u in users:
+        # you first, then the accounts that have faces, then the others by name
+        users = sorted(out[0], key=lambda u: (u["name"] != me, not u["faces"], u["name"].casefold()))
+        for u in users[:MAX_ACCOUNT_ROWS]:
             row = self._account_row(u, u["name"] == me)
             self.accounts.add(row)
             self._rows.append(row)
-        # faces of every account (lazy: one call each)
-        for u in users:
-            self.client.call_async("ListFaces", "s", (u["name"],),
-                                   lambda o, e, name=u["name"]: self._on_faces(name, o, e), 10000)
+            # The faces of an account are fetched when its row is opened: for somebody else's account
+            # that is an administrator's request (polkit asks for a password), which must not happen
+            # for every account of the machine as soon as the window opens.
+            if u["faces"] and u["name"] == me:
+                self._load_faces(u["name"])
+        hidden = len(users) - MAX_ACCOUNT_ROWS
+        note = (_("%d more accounts are not shown. ") % hidden) if hidden > 0 else ""
+        self._more_row = Adw.ActionRow(
+            title=_("Another account?"), css_classes=["dim-label"],
+            subtitle=note + _("Add a face, then choose the account in the next step: the list there can be "
+                              "searched, and the login of an account that is not listed can be typed."))
+        self.accounts.add(self._more_row)
+
+    def _load_faces(self, name: str) -> None:
+        row = next((r for r in self._rows if r._user["name"] == name), None)
+        if row is None or row._faces_state != "idle":
+            return
+        row._faces_state = "loading"
+        self.client.call_async("ListFaces", "s", (name,), lambda o, e: self._on_faces(name, o, e), 600000)
+
+    def _on_row_expanded(self, row, _pspec) -> None:
+        if row.get_expanded() and row._user["faces"]:
+            self._load_faces(row._user["name"])
 
     def _account_row(self, u: dict, mine: bool) -> Adw.ExpanderRow:
         row = Adw.ExpanderRow(title=u["realname"] + (_(" (you)") if mine else ""))
@@ -213,6 +241,8 @@ class Window(Adw.ApplicationWindow):
         row.add_suffix(add)
         row._user = u
         row._face_rows = []
+        row._faces_state = "idle"          # idle -> loading -> loaded (back to idle when refused)
+        row.connect("notify::expanded", self._on_row_expanded)
         return row
 
     @staticmethod
@@ -224,8 +254,14 @@ class Window(Adw.ApplicationWindow):
 
     def _on_faces(self, name: str, out, err) -> None:
         row = next((r for r in self._rows if r._user["name"] == name), None)
-        if row is None or err:
+        if row is None:
             return
+        if err:
+            row._faces_state = "idle"
+            row.set_expanded(False)
+            self.toast(format_error(err))
+            return
+        row._faces_state = "loaded"
         for r in row._face_rows:
             row.remove(r)
         row._face_rows.clear()
